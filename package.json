@@ -1,0 +1,18 @@
+{
+  "name": "progetto-segretissimo-googlemap",
+  "version": "1.0.0",
+  "description": "Simple Node.js + Express app showing a Google Map using the Google Maps JavaScript API",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": ["google-maps", "express", "nodejs"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^10.0.0",
+    "ejs": "^3.1.10",
+    "express": "^4.18.2"
+  }
+}

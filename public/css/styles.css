@@ -1,0 +1,47 @@
+/* styles.css - minimal styles for the map */
+html, body { height: 100%; margin: 0; }
+/* Layout: sidebar + map */
+#app { display: flex; height: 100vh; }
+#sidebar { width: 320px; background: #fff; padding: 1rem; box-shadow: 0 0 6px rgba(0,0,0,0.1); overflow-y: auto; }
+#sidebar h2 { margin-top: 0; }
+#map-container { flex: 1; position: relative; }
+#map { height: 100%; width: 100%; }
+
+#map-placeholder { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #666; background: #fff; z-index: 500; }
+
+#map-actions { position: absolute; right: .5rem; top: .5rem; z-index: 600; }
+#map-actions button { background: rgba(255,255,255,0.85); border: 1px solid #ccc; padding: 0.35rem .6rem; cursor: pointer; }
+
+/* Map API error overlay */
+/* Map overlay appears on top of the map container */
+#map-overlay {
+	position: absolute;
+	inset: 0 0 0 0;
+	display: none;
+	align-items: center;
+	justify-content: center;
+	background: rgba(0,0,0,0.5);
+	color: #fff;
+	z-index: 1000;
+}
+
+#map-overlay .overlay-content {
+	background: rgba(0,0,0,0.7);
+	padding: 1.25rem 1.5rem;
+	border-radius: 8px;
+	max-width: 480px;
+	text-align: center;
+}
+
+#places-list { list-style: none; margin: 0; padding: 0; }
+.place-item { padding: .5rem .25rem; border-bottom: 1px solid #eee; cursor: pointer; }
+.place-item:hover { background: #f5f5f5; }
+.more-results { display: block; margin: 1rem auto; padding: 0.5rem 1rem; }
+#controls { margin-bottom: 0.5rem; }
+#clear-circle { display: inline-block; margin-bottom: 0.5rem; }
+.export-btn { display: inline-block; margin-left: 0.5rem; }
+#export-json { margin-left:0.5rem; }
+.map-status { margin-top: 0.5rem; font-size: 0.9rem; color: #222; }
+.map-status strong { font-weight: 700; }
+.circle-info { font-size: 0.9rem; color: #333; margin-top: 0.5rem; }
+#circle-coords, #circle-radius { font-weight: 600; }

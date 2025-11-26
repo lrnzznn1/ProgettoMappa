@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Progetto Segretissimo - Google Map</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+    <style>
+      /* fallback style for the map container */
+      #map { height: 100vh; width: 100%; }
+      body, html { margin: 0; padding: 0; height: 100%; }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <aside id="sidebar">
+        <h2>Ristoranti nella zona</h2>
+        <div id="controls">
+          <button id="clear-circle" aria-label="Rimuovi cerchio">Rimuovi cerchio</button>
+          <button id="export-json" aria-label="Esporta lista">Esporta JSON</button>
+          <small>Disegna un cerchio sulla mappa per cercare ristoranti</small>
+          <div id="map-status" class="map-status">Stato mappa: <strong id="map-status-text">In attesa...</strong></div>
+          <div id="circle-info">
+            <div>Centro: <span id="circle-coords">—</span></div>
+            <div>Raggio (m): <span id="circle-radius">—</span></div>
+          </div>
+        </div>
+        <ul id="places-list" aria-live="polite"></ul>
+      </aside>
+      <main id="map-container">
+        <div id="map"></div>
+        <div id="map-placeholder" class="map-placeholder">Caricamento mappa... Se vedi questo testo, la Google Maps JS non ha caricato correttamente.</div>
+        <div id="map-actions" class="map-actions">
+          <button id="reload-map" aria-label="Ricarica mappa">Ricarica mappa</button>
+        </div>
+      </main>
+    </div>
+      <div id="map-overlay" role="alert" aria-live="polite" style="display:none;">
+        <div class="overlay-content">
+          <h3>Google Maps non è stato caricato</h3>
+          <p>Imposta la chiave API Google Maps in `.env` (GOOGLE_MAPS_API_KEY) e riavvia il server.</p>
+        </div>
+      </div>
+    <!-- Load local script first to define initMap, then load Google Maps JS API with callback -->
+    <script src="/js/map.js"></script>
+    <script
+      src="https://maps.googleapis.com/maps/api/js?key=<%= apiKey %>&callback=initMap&libraries=drawing,places&v=weekly"
+      async
+      defer
+      onerror="window.mapLoadError && window.mapLoadError()"
+    ></script>
+  </body>
+  </html>
