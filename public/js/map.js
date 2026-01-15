@@ -75,21 +75,18 @@ function initMap() {
 
     // ===== RIFERIMENTI AL DOM =====
     // Questi elementi sono definiti in index.ejs e vengono usati qui per aggiornare l'interfaccia
-    const placesListEl = document.getElementById('places-list'); // Lista cibo nella sidebar
+    const placesListEl = document.getElementById('places-list'); // Lista elementi nella sidebar
     const clearBtn = document.getElementById('clear-circle');    // Bottone per cancellare il cerchio
     const apiResponseEl = document.getElementById('api-response-container'); // Contenitore risposta API
     const apiResponseTextEl = document.getElementById('api-response-text');   // Testo risposta API
     let circle = null;                                           // Variabile che tiene traccia del cerchio disegnato
     let markers = [];                                            // Array di marker sulla mappa
     let lastPlaces = [];                                         // Ultimi risultati di ricerca (per esportazione)
-    let lastPlacesBackup = [];                                   // Backup dei risultati originali (con duplicati)
     let placesService = new google.maps.places.PlacesService(map);
     let infoWindow = new google.maps.InfoWindow();              // Finestra che appare al click su un marker
     const coordsEl = document.getElementById('circle-coords');  // Span che mostra le coordinate del cerchio
     const radiusEl = document.getElementById('circle-radius');  // Span che mostra il raggio del cerchio
     const mapStatusText = document.getElementById('map-status-text'); // Span che mostra lo stato della mappa
-    const removeDuplicatesBtn = document.getElementById('remove-duplicates');    // Bottone rimuovi duplicati
-    const restoreDuplicatesBtn = document.getElementById('restore-duplicates');  // Bottone ripristina
 
     // Funzione helper per ottenere le configurazioni delle 6 ricerche
     // Legge i valori dagli input HTML, con fallback ai valori di default
@@ -186,7 +183,7 @@ function initMap() {
      * 3. Aggiunge listener per quando il cerchio viene modificato
      * 4. Esegue la prima ricerca ristoranti
      */
-    const maxRadius = 10000; // 10 km in metri - vincolo massimo
+    const maxRadius = 5000; // 10 km in metri - vincolo massimo
     let isAdjustingRadius = false; // Flag per evitare loop infiniti
     let radiusCheckInterval = null; // Interval per controllare il raggio durante il disegno
     
@@ -279,31 +276,6 @@ function initMap() {
         return;
       }
       searchPlaces(circle); // Ricerca nuovi risultati con il cerchio attuale
-    });
-
-    // ===== EVENT LISTENER: BOTTONE "RIMUOVI DUPLICATI" =====
-    /**
-     * Quando l'utente clicca "Rimuovi duplicati":
-     * 1. Crea un backup dei risultati originali (con duplicati)
-     * 2. Filtra lastPlaces per mantenere solo i non-duplicati
-     * 3. Ricrea marker e lista sulla sidebar
-     * 4. Mostra il bottone "Ripristina"
-     */
-    if (removeDuplicatesBtn) removeDuplicatesBtn.addEventListener('click', () => {
-      if (lastPlaces.length === 0) {
-        alert('Nessun risultato da pulire');
-        return;
-      }
-      removeDuplicatesFromList();
-    });
-
-    // ===== EVENT LISTENER: BOTTONE "RIPRISTINA TUTTI" =====
-    /**
-     * Quando l'utente clicca "Ripristina tutti":
-     * Ripristina i risultati originali (con duplicati)
-     */
-    if (restoreDuplicatesBtn) restoreDuplicatesBtn.addEventListener('click', () => {
-      restoreDuplicatesToList();
     });
 
     // ===== EVENT LISTENER: BOTTONE "RICARICA MAPPA" =====
@@ -409,7 +381,8 @@ function initMap() {
             lng: center.lng(), 
             radius,
             includedTypes: config.includedTypes,
-            excludedTypes: config.excludedTypes
+            excludedTypes: config.excludedTypes,
+            rankPreference: "POPULARITY"
           };
           
           console.log(`Ricerca ${config.searchNumber}:`, payload);
@@ -499,9 +472,21 @@ function initMap() {
           };
         });
 
-        // ===== RENDERING SIDEBAR CON RISULTATI RAGGRUPPATI =====
-        // Se non ci sono risultati da nessuna ricerca
-        if (totalResults === 0) {
+        // ===== FILTRO AUTOMATICO DEI DUPLICATI =====
+        // Filtra lastPlaces per mantenere solo il primo occurrence di ogni place_id
+        const seen = new Set();
+        const uniquePlaces = [];
+        lastPlaces.forEach(place => {
+          if (!seen.has(place.place_id)) {
+            seen.add(place.place_id);
+            uniquePlaces.push(place);
+          }
+        });
+        lastPlaces = uniquePlaces;
+
+        // ===== RENDERING SIDEBAR CON RISULTATI RAGGRUPPATI (SENZA DUPLICATI) =====
+        // Se non ci sono risultati dopo il filtro
+        if (lastPlaces.length === 0) {
           const li = document.createElement('li');
           li.className = 'place-item';
           li.style.padding = '10px';
@@ -512,11 +497,20 @@ function initMap() {
           return;
         }
 
-        // Mostra ogni ricerca con i suoi risultati
+        // Raggruppa per ricerca
+        const groupedBySearch = {};
+        lastPlaces.forEach(place => {
+          const searchNum = place.searchSource ? place.searchSource.match(/\d+/)[0] : '?';
+          if (!groupedBySearch[searchNum]) {
+            groupedBySearch[searchNum] = [];
+          }
+          groupedBySearch[searchNum].push(place);
+        });
+
+        // Mostra raggruppato senza duplicati
         for (let i = 1; i <= 6; i++) {
-          const group = groupedResults[i];
+          const places = groupedBySearch[i] || [];
           
-          // Crea un header per ogni ricerca
           const header = document.createElement('li');
           header.className = 'search-section-header';
           header.style.backgroundColor = '#f0f0f0';
@@ -526,20 +520,14 @@ function initMap() {
           header.style.cursor = 'default';
           header.style.borderLeft = '4px solid ' + getSearchColor(i);
           header.style.listStyle = 'none';
-          
-          if (group.error) {
-            header.textContent = `🔴 Ricerca ${i}: Errore (${group.error})`;
-          } else {
-            header.textContent = `Ricerca ${i}: ${group.count} risultato${group.count !== 1 ? 'i' : ''}`;
-          }
+          header.textContent = `Ricerca ${i}: ${places.length} risultato${places.length !== 1 ? 'i' : ''}`;
           placesListEl.appendChild(header);
           
-          // Mostra i risultati di questa ricerca
-          if (group.places && group.places.length > 0) {
-            group.places.forEach(place => {
+          if (places.length > 0) {
+            places.forEach(place => {
               addPlaceToList(place, null);
             });
-          } else if (!group.error) {
+          } else {
             const emptyItem = document.createElement('li');
             emptyItem.className = 'place-item';
             emptyItem.style.fontSize = '0.9rem';
@@ -552,12 +540,12 @@ function initMap() {
 
         // Aggiorna il contatore nella sidebar
         if (typeof window.setMapStatus === 'function') 
-          window.setMapStatus(`Trovati ${totalResults} risultati dalle 6 ricerche`);
+          window.setMapStatus(`Trovati ${lastPlaces.length} risultati unici`);
         
         // Abilita il bottone di esportazione ora che abbiamo risultati
         if (exportBtn) exportBtn.disabled = false;
         
-        // Controlla e mostra i duplicati nella pagina
+        // Controlla e mostra i duplicati nella pagina (analisi)
         checkDuplicates();
         
       } catch (err) {
@@ -566,7 +554,7 @@ function initMap() {
         const li = document.createElement('li');
         li.className = 'place-item';
         li.textContent = `Ricerca fallita: ${err.message}`;
-        placesListEl.appendChild(li);
+        //placesListEl.appendChild(li);
       }
     }
 
@@ -595,22 +583,52 @@ function initMap() {
       if (radiusEl) radiusEl.innerText = radius.toString();
     }
 
+    // ===== FUNZIONE HELPER: CREA ICONA MARKER COLORATA =====
+    /**
+     * createColoredMarkerIcon(color) - Crea un'icona SVG per il marker con il colore specificato
+     */
+    function createColoredMarkerIcon(color) {
+      const svgIcon = `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+          <path fill="${color}" stroke="white" stroke-width="2" d="M16 0C9.4 0 4 5.4 4 12c0 7 12 20 12 20s12-13 12-20c0-6.6-5.4-12-12-12z"/>
+          <circle cx="16" cy="12" r="5" fill="white"/>
+        </svg>
+      `.trim();
+      
+      return {
+        url: 'data:image/svg+xml;base64,' + btoa(svgIcon),
+        scaledSize: new google.maps.Size(32, 32),
+        anchor: new google.maps.Point(16, 32)
+      };
+    }
+
     // ===== FUNZIONE: AGGIUNGI MARKER SULLA MAPPA =====
     /**
      * addPlaceMarker(place) - Crea un marker sulla mappa per un ristorante
      * 
      * Funzionalità:
-     * 1. Crea un marker a quella posizione
+     * 1. Crea un marker a quella posizione con icona colorata
      * 2. Al click mostra nome e indirizzo in una InfoWindow
-     * 3. Aggiunge il ristorante alla lista nella sidebar
+     * 3. Il colore corrisponde alla categoria di ricerca
      */
     function addPlaceMarker(place) {
       if (!place.geometry || !place.geometry.location) return;
       
-      // Crea il marker sulla mappa
+      // Estrai il numero della ricerca da searchSource e ottieni il colore
+      let markerColor = '#1f76d2'; // blu di default
+      if (place.searchSource) {
+        const searchNum = place.searchSource.match(/\d+/);
+        if (searchNum) {
+          markerColor = getSearchColor(parseInt(searchNum[0]));
+        }
+      }
+      
+      // Crea il marker sulla mappa con icona colorata
       const marker = new google.maps.Marker({
         map: map,
         position: place.geometry.location,
+        icon: createColoredMarkerIcon(markerColor),
+        title: place.name
       });
       markers.push(marker); // Salva il riferimento per poterlo cancellare dopo
 
@@ -641,9 +659,6 @@ function initMap() {
         infoWindow.setContent(content);
         infoWindow.open(map, marker);
       });
-
-      // Aggiungi anche il ristorante alla lista nella sidebar
-      addPlaceToList(place, marker);
     }
 
     // ===== FUNZIONE: AGGIUNGI RISTORANTE ALLA LISTA SIDEBAR =====
@@ -695,166 +710,7 @@ function initMap() {
       markers = []; // Resetta l'array
     }
 
-    // ===== FUNZIONE: RIMUOVI DUPLICATI DALLA LISTA =====
-    /**
-     * removeDuplicatesFromList() - Filtra i duplicati e mostra solo i non-duplicati
-     * 
-     * Processo:
-     * 1. Crea un backup di lastPlaces (con duplicati)
-     * 2. Filtra lastPlaces per mantenere solo il primo occurrence di ogni place_id
-     * 3. Pulisce marker e sidebar
-     * 4. Ricrea completamente tutta la lista nella sidebar
-     * 5. Mostra il bottone "Ripristina"
-     */
-    function removeDuplicatesFromList() {
-      // Crea backup se non esiste già
-      if (lastPlacesBackup.length === 0) {
-        lastPlacesBackup = JSON.parse(JSON.stringify(lastPlaces));
-      }
-      
-      const seen = new Set();
-      const uniquePlaces = [];
-      
-      // Mantieni solo il primo occurrence di ogni place_id
-      lastPlaces.forEach(place => {
-        if (!seen.has(place.place_id)) {
-          seen.add(place.place_id);
-          uniquePlaces.push(place);
-        }
-      });
-      
-      // Aggiorna lastPlaces con i soli non-duplicati
-      lastPlaces = uniquePlaces;
-      
-      // ===== RIPULISCI COMPLETAMENTE MARKER E SIDEBAR =====
-      clearMarkers();
-      placesListEl.innerHTML = '';
-      
-      // ===== RICREA MARKER SULLA MAPPA =====
-      // Ricrea i marker per i soli non-duplicati
-      lastPlaces.forEach(place => {
-        addPlaceMarker(place);
-      });
-      
-      // ===== RICREA COMPLETAMENTE LA LISTA =====
-      // Ricostruisci la lista nella sidebar raggruppando per ricerca
-      rebuildPlacesList();
-      
-      // Aggiorna lo stato
-      if (typeof window.setMapStatus === 'function') 
-        window.setMapStatus(`Mostrando ${lastPlaces.length} risultati unici`);
-      
-      // Mostra/nascondi bottoni
-      if (removeDuplicatesBtn) removeDuplicatesBtn.style.display = 'none';
-      if (restoreDuplicatesBtn) restoreDuplicatesBtn.style.display = 'inline-block';
-      
-      // Ricalcola e mostra l'analisi dei duplicati aggiornata (post-pulizia)
-      checkDuplicates();
-    }
 
-    // ===== FUNZIONE: RIPRISTINA DUPLICATI =====
-    /**
-     * restoreDuplicatesToList() - Ripristina i risultati originali (con duplicati)
-     * 
-     * Restituisce alla visualizzazione originale con tutti i risultati
-     */
-    function restoreDuplicatesToList() {
-      if (lastPlacesBackup.length === 0) return;
-      
-      // Ripristina i dati originali
-      lastPlaces = JSON.parse(JSON.stringify(lastPlacesBackup));
-      
-      // Ripulisci marker e sidebar
-      clearMarkers();
-      placesListEl.innerHTML = '';
-      
-      // Ricrea marker e lista con tutti i risultati
-      lastPlaces.forEach(place => {
-        addPlaceMarker(place);
-      });
-      
-      // Aggiorna la sidebar
-      rebuildPlacesList();
-      
-      // Aggiorna lo stato
-      if (typeof window.setMapStatus === 'function') 
-        window.setMapStatus(`Trovati ${lastPlaces.length} risultati dalle 6 ricerche`);
-      
-      // Mostra/nascondi bottoni
-      if (removeDuplicatesBtn) removeDuplicatesBtn.style.display = 'inline-block';
-      if (restoreDuplicatesBtn) restoreDuplicatesBtn.style.display = 'none';
-      
-      // Ricalcola e mostra i duplicati
-      checkDuplicates();
-    }
-
-    // ===== FUNZIONE: RICOSTRUISCI LISTA NELLA SIDEBAR =====
-    /**
-     * rebuildPlacesList() - Ricostruisce la lista nella sidebar con i risultati attuali
-     * Mostra i risultati raggruppati per ricerca (solo non-duplicati)
-     */
-    function rebuildPlacesList() {
-      placesListEl.innerHTML = '';
-      
-      if (lastPlaces.length === 0) {
-        const li = document.createElement('li');
-        li.className = 'place-item';
-        li.textContent = 'Nessun risultato.';
-        placesListEl.appendChild(li);
-        return;
-      }
-      
-      // Filtra i duplicati - mostra solo il primo occurrence di ogni place_id
-      const seen = new Set();
-      const uniquePlaces = [];
-      lastPlaces.forEach(place => {
-        if (!seen.has(place.place_id)) {
-          seen.add(place.place_id);
-          uniquePlaces.push(place);
-        }
-      });
-      
-      // Raggruppa per ricerca
-      const groupedBySearch = {};
-      uniquePlaces.forEach(place => {
-        const searchNum = place.searchSource ? place.searchSource.match(/\d+/)[0] : '?';
-        if (!groupedBySearch[searchNum]) {
-          groupedBySearch[searchNum] = [];
-        }
-        groupedBySearch[searchNum].push(place);
-      });
-      
-      // Mostra raggruppato
-      for (let i = 1; i <= 6; i++) {
-        const places = groupedBySearch[i] || [];
-        
-        const header = document.createElement('li');
-        header.className = 'search-section-header';
-        header.style.backgroundColor = '#f0f0f0';
-        header.style.padding = '8px';
-        header.style.fontWeight = 'bold';
-        header.style.marginTop = '8px';
-        header.style.cursor = 'default';
-        header.style.borderLeft = '4px solid ' + getSearchColor(i);
-        header.style.listStyle = 'none';
-        header.textContent = `Ricerca ${i}: ${places.length} risultato${places.length !== 1 ? 'i' : ''}`;
-        placesListEl.appendChild(header);
-        
-        if (places.length > 0) {
-          places.forEach(place => {
-            addPlaceToList(place, null);
-          });
-        } else {
-          const emptyItem = document.createElement('li');
-          emptyItem.className = 'place-item';
-          emptyItem.style.fontSize = '0.9rem';
-          emptyItem.style.color = '#999';
-          emptyItem.style.paddingLeft = '20px';
-          emptyItem.textContent = '(nessun risultato)';
-          placesListEl.appendChild(emptyItem);
-        }
-      }
-    }
 
     // ===== FUNZIONE: CONTROLLA DUPLICATI =====
     /**
