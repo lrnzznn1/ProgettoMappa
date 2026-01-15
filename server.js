@@ -39,17 +39,19 @@ app.get('/', (req, res) => {
 // ===== RICERCA RISTORANTI (ENDPOINT PRINCIPALE) =====
 /**
  * POST /api/places/searchNearby
- * Ricerca ristoranti in una zona geografica usando Google Places API
+ * Ricerca ristoranti in una zona geografica usando Google Places API v1
+ * Supporta nativamente includedTypes e excludedTypes
  * 
  * Body richiesta:
  *   - lat: latitudine del centro cerchio (numero)
  *   - lng: longitudine del centro cerchio (numero)
  *   - radius: raggio di ricerca in metri (numero)
  *   - includedTypes: tipi di posti (default: ['restaurant'])
+ *   - excludedTypes: tipi da escludere (default: [])
  *   - maxResultCount: numero massimo di risultati (default: 20)
  * 
  * Risposta:
- *   { ok: true, data: { results: [...] } } oppure { ok: false, error: "motivo" }
+ *   { ok: true, data: { places: [...] } } oppure { ok: false, error: "motivo" }
  */
 app.post('/api/places/searchNearby', async (req, res) => {
   try {
@@ -60,14 +62,15 @@ app.post('/api/places/searchNearby', async (req, res) => {
     if (!apiKey) return res.status(500).json({ ok: false, error: 'Server missing Google Maps API key' });
 
     // Estrae parametri dal body della richiesta
-    const { lat, lng, radius, includedTypes = ['restaurant'], maxResultCount = 20 } = req.body || {};
+    const { lat, lng, radius, includedTypes = ['restaurant'], excludedTypes = [], maxResultCount = 20 } = req.body || {};
     
     // Valida che i parametri obbligatori siano presenti
     if (!lat || !lng || !radius) return res.status(400).json({ ok: false, error: 'lat, lng and radius are required' });
 
-    // Costruisce il body della richiesta (non usato nel codice attuale, rimane per compatibilità)
+    // Costruisce il body della richiesta per l'API v1
     const requestBody = {
-      includedTypes,
+      includedTypes: includedTypes.length > 0 ? includedTypes : ['restaurant'],
+      excludedTypes,
       maxResultCount,
       locationRestriction: {
         circle: {
@@ -77,22 +80,23 @@ app.post('/api/places/searchNearby', async (req, res) => {
       }
     };
 
-    // Costruisce l'URL per l'API Google Places (versione web service classica "nearbysearch")
-    // Usa questa versione per evitare limiti lato client
-    const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${Number(lat)},${Number(lng)}&radius=${Number(radius)}&type=${encodeURIComponent(includedTypes[0] || 'restaurant')}&key=${apiKey}`;
+    const url = `https://places.googleapis.com/v1/places:searchNearby`;
     
     // Tenta di usare fetch se disponibile (Node.js 18+)
     const fetchFn = (typeof fetch === 'function') ? fetch : null;
-    let fetchRes;
-    const fieldMask = process.env.PLACES_FIELD_MASK || 'places.displayName,places.location,places.formatted_address,places.place_id';
     
     if (fetchFn) {
       // Opzione 1: usa fetch moderna (Node.js 18+)
-      fetchRes = await fetch(url, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': apiKey,
+          'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.types,places.location,places.id'
+        },
+        body: JSON.stringify(requestBody)
       });
-      const json = await fetchRes.json();
+      const json = await response.json();
       return res.json({ ok: true, data: json });
     }
 
@@ -103,8 +107,13 @@ app.post('/api/places/searchNearby', async (req, res) => {
     const options = {
       hostname: parsedUrl.hostname,
       path: parsedUrl.pathname + parsedUrl.search,
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' }
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': apiKey,
+        'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.types,places.location,places.id',
+        'Content-Length': Buffer.byteLength(bodyStr)
+      }
     };
     
     // Effettua la richiesta HTTPS e attende la risposta completa
@@ -115,7 +124,6 @@ app.post('/api/places/searchNearby', async (req, res) => {
         resp.on('end', () => resolve({ statusCode: resp.statusCode, body: data }));
       });
       reqData.on('error', reject);
-      reqData.write(bodyStr);
       reqData.end();
     });
     
@@ -125,7 +133,7 @@ app.post('/api/places/searchNearby', async (req, res) => {
     
   } catch (err) {
     // Gestisce errori (API key invalida, rete, etc.)
-    console.error('Error calling server-side Places API', err);
+    console.error('Error calling Google Places API', err);
     return res.status(500).json({ ok: false, error: err.message });
   }
 });

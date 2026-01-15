@@ -1,10 +1,10 @@
 /**
- * map.js - Inizializzazione mappa Google Maps e logica di ricerca ristoranti
+ * map.js - Inizializzazione mappa Google Maps e logica di ricerca cibo
  * 
  * Questa funzione è il cuore dell'app lato client:
  * 1. Crea una mappa Google Maps centrata su Roma
  * 2. Permette all'utente di disegnare un cerchio sulla mappa
- * 3. Quando il cerchio è completato/modificato, cerca ristoranti via API server
+ * 3. Quando il cerchio è completato/modificato, cerca cibo via API server
  * 4. Mostra i risultati come marker sulla mappa e come lista nella sidebar
  */
 function initMap() {
@@ -19,8 +19,12 @@ function initMap() {
 
     // ===== RIFERIMENTI AL DOM =====
     // Questi elementi sono definiti in index.ejs e vengono usati qui per aggiornare l'interfaccia
-    const placesListEl = document.getElementById('places-list'); // Lista ristoranti nella sidebar
+    const placesListEl = document.getElementById('places-list'); // Lista cibo nella sidebar
     const clearBtn = document.getElementById('clear-circle');    // Bottone per cancellare il cerchio
+    const apiResponseEl = document.getElementById('api-response-container'); // Contenitore risposta API
+    const apiResponseTextEl = document.getElementById('api-response-text');   // Testo risposta API
+    const includedTypesInput = document.getElementById('included-types'); // Input per tipi inclusi
+    const excludedTypesInput = document.getElementById('excluded-types'); // Input per tipi esclusi
     let circle = null;                                           // Variabile che tiene traccia del cerchio disegnato
     let markers = [];                                            // Array di marker sulla mappa
     let lastPlaces = [];                                         // Ultimi risultati di ricerca (per esportazione)
@@ -73,6 +77,25 @@ function initMap() {
      * 3. Aggiunge listener per quando il cerchio viene modificato
      * 4. Esegue la prima ricerca ristoranti
      */
+    const maxRadius = 10000; // 10 km in metri - vincolo massimo
+    let isAdjustingRadius = false; // Flag per evitare loop infiniti
+    let radiusCheckInterval = null; // Interval per controllare il raggio durante il disegno
+    
+    // ===== POLLING PER LIMITARE RAGGIO DURANTE DISEGNO =====
+    /**
+     * Questo interval controlla continuamente il raggio del cerchio e lo limita a 10 km
+     * Funziona sia durante il disegno iniziale che durante le modifiche successive
+     */
+    radiusCheckInterval = setInterval(() => {
+      if (circle && circle.getRadius() > maxRadius) {
+        if (!isAdjustingRadius) {
+          isAdjustingRadius = true;
+          circle.setRadius(maxRadius);
+          isAdjustingRadius = false;
+        }
+      }
+    }, 50); // Controlla ogni 50ms per una risposta fluida
+    
     google.maps.event.addListener(drawingManager, 'circlecomplete', function(newCircle) {
       // Rimuovi cerchio precedente se esiste
       if (circle) {
@@ -80,8 +103,25 @@ function initMap() {
       }
       circle = newCircle;
       
+      // Limita il raggio subito dopo il disegno se supera il massimo
+      if (circle.getRadius() > maxRadius) {
+        isAdjustingRadius = true;
+        circle.setRadius(maxRadius);
+        isAdjustingRadius = false;
+      }
+      
       // Aggiungi listener per quando l'utente modifica il cerchio (sposta o cambia raggio)
       circle.addListener('radius_changed', () => { 
+        // Evita loop infiniti quando limitiamo il raggio
+        if (isAdjustingRadius) return;
+        
+        // Vincolo: il raggio non può superare 10 km (10.000 metri)
+        if (circle.getRadius() > maxRadius) {
+          isAdjustingRadius = true;
+          circle.setRadius(maxRadius);
+          isAdjustingRadius = false;
+          return; // Esci senza ricercare
+        }
         updateCircleInfo(circle);    // Aggiorna i numeri nella sidebar
         searchPlaces(circle);         // Effettua nuova ricerca
       });
@@ -90,7 +130,7 @@ function initMap() {
         searchPlaces(circle);
       });
       
-      // Esegui la ricerca iniziale non appena il cerchio è completo
+      // Esegui la ricerca iniziale non appena il cerchio è completo (con raggio limitato)
       updateCircleInfo(circle);
       searchPlaces(circle);
     });
@@ -117,6 +157,21 @@ function initMap() {
       lastPlaces = [];
     });
 
+    // ===== EVENT LISTENER: BOTTONE "RICERCA DI NUOVO" =====
+    /**
+     * Quando l'utente clicca "Ricerca di nuovo":
+     * Se c'è un cerchio disegnato, ricalcola i risultati della ricerca
+     * Altrimenti, mostra un messaggio di avviso
+     */
+    const refreshBtn = document.getElementById('refresh-search');
+    if (refreshBtn) refreshBtn.addEventListener('click', () => {
+      if (!circle) {
+        alert('Disegna prima un cerchio sulla mappa');
+        return;
+      }
+      searchPlaces(circle); // Ricerca nuovi risultati con il cerchio attuale
+    });
+
     // ===== EVENT LISTENER: BOTTONE "RICARICA MAPPA" =====
     /**
      * Ricarica tutta la pagina per resettare la mappa
@@ -141,7 +196,7 @@ function initMap() {
     if (exportBtn) exportBtn.disabled = true; // Disabilita finché non ci sono risultati
     if (exportBtn) exportBtn.addEventListener('click', () => {
       if (!lastPlaces || lastPlaces.length === 0) {
-        alert('Nessun ristorante da esportare. Disegna prima un cerchio e attendi i risultati.');
+        alert('Nessun cibo da esportare. Disegna prima un cerchio e attendi i risultati.');
         return;
       }
       
@@ -210,16 +265,42 @@ function initMap() {
       try {
         // ===== RICHIESTA AL SERVER =====
         /**
-         * Invia le coordinate e il raggio al server
-         * Il server utilizzerà Google Places API per cercare ristoranti
+         * Invia le coordinate, il raggio e i tipi di cibo al server
+         * Il server utilizzerà Google Places API per cercare cibo
          */
-        const payload = { lat: center.lat(), lng: center.lng(), radius };
+        // Estrai i tipi inclusi ed esclusi dagli input
+        const includedTypes = includedTypesInput.value
+          .split(',')
+          .map(t => t.trim())
+          .filter(t => t.length > 0);
+        const excludedTypes = excludedTypesInput.value
+          .split(',')
+          .map(t => t.trim())
+          .filter(t => t.length > 0);
+        
+        const payload = { 
+          lat: center.lat(), 
+          lng: center.lng(), 
+          radius,
+          includedTypes: includedTypes.length > 0 ? includedTypes : ['restaurant'],
+          excludedTypes
+        };
         const response = await fetch('/api/places/searchNearby', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
         const json = await response.json();
+        
+        // ===== MOSTRA LA RISPOSTA JSON COMPLETA =====
+        /**
+         * Mostra la risposta JSON completa in basso a sinistra
+         * Utile per il debugging e la visualizzazione della risposta API
+         */
+        if (apiResponseEl && apiResponseTextEl) {
+          apiResponseTextEl.innerText = JSON.stringify(json, null, 2);
+          apiResponseEl.style.display = 'block';
+        }
         
         // Controlla se la ricerca è andata a buon fine
         if (!json.ok) {
@@ -232,42 +313,43 @@ function initMap() {
 
         // ===== ELABORAZIONE RISULTATI =====
         const data = json.data || {};
-        const results = data.results || [];
+        const results = data.places || [];
         
         // Se non ci sono risultati, mostra un messaggio
         if (!results || results.length === 0) {
           const li = document.createElement('li');
           li.className = 'place-item';
-          li.textContent = 'Nessun ristorante trovato in quest\'area.';
+          li.textContent = 'Nessun cibo trovato in quest\'area.';
           placesListEl.appendChild(li);
-          if (typeof window.setMapStatus === 'function') window.setMapStatus('Nessun ristorante trovato');
+          if (typeof window.setMapStatus === 'function') window.setMapStatus('Nessun cibo trovato');
           return;
         }
 
-        // ===== PER OGNI RISTORANTE: CREA MARKER E VOCE LISTA =====
-        results.forEach((r) => {
-          // Alcuni risultati potrebbero avere un wrapper ".place", altri no
-          const place = r.place || r;
+        // ===== PER OGNI LUOGO: CREA MARKER E VOCE LISTA =====
+        results.forEach((place) => {
+          // La risposta v1 ha coordinate in location.latitude e location.longitude
           
-          // Estrai le coordinate (possono essere in diversi formati)
+          // Estrai le coordinate (formato v1: location.latitude/longitude)
           let latLng = null;
-          if (place.location && place.location.lat && place.location.lng) {
-            latLng = { lat: place.location.lat, lng: place.location.lng };
-          } else if (place.geometry && place.geometry.location) {
-            latLng = { lat: place.geometry.location.lat, lng: place.geometry.location.lng };
-          } else if (place.geo && place.geo.location && place.geo.location.lat && place.geo.location.lng) {
-            latLng = { lat: place.geo.location.lat, lng: place.geo.location.lng };
+          if (place.location && place.location.latitude !== undefined && place.location.longitude !== undefined) {
+            latLng = { lat: place.location.latitude, lng: place.location.longitude };
           }
           
-          // Se non trovi coordinate, salta questo ristorante
+          // Se non trovi coordinate, salta questo luogo
           if (!latLng) return;
           
           // Normalizza i dati in un formato coerente
+          // Nota: displayName potrebbe essere un oggetto {text: "..."} oppure una stringa
+          const displayNameValue = typeof place.displayName === 'object' && place.displayName.text 
+            ? place.displayName.text 
+            : place.displayName;
+          
           const simplified = {
-            name: place.displayName || place.name || (place.info && place.info.name) || 'Sconosciuto',
-            vicinity: place.address || place.formatted_address || (place.locality || ''),
-            place_id: place.place_id || place.id || null,
+            name: displayNameValue || 'Sconosciuto',
+            vicinity: place.formattedAddress || '',
+            place_id: place.id || null,
             geometry: { location: { lat: latLng.lat, lng: latLng.lng } },
+            types: place.types || [],  // Array di tipi assegnati da Google Maps API
           };
           
           // Aggiungi il marker sulla mappa
@@ -278,7 +360,7 @@ function initMap() {
           
           // Aggiorna il contatore nella sidebar
           if (typeof window.setMapStatus === 'function') 
-            window.setMapStatus(`Trovati ${lastPlaces.length} ristoranti`);
+            window.setMapStatus(`Trovati ${lastPlaces.length} piatti/locali`);
           
           // Abilita il bottone di esportazione ora che abbiamo risultati
           if (exportBtn) exportBtn.disabled = false;
@@ -327,11 +409,24 @@ function initMap() {
       });
       markers.push(marker); // Salva il riferimento per poterlo cancellare dopo
 
-      // Quando clicchi il marker, mostra un popup con il nome e indirizzo
+      // Quando clicchi il marker, mostra un popup con il nome, indirizzo e tipi
       google.maps.event.addListener(marker, 'click', () => {
-        infoWindow.setContent(
-          '<div><strong>' + place.name + '</strong><br>' + (place.vicinity || '') + '</div>'
-        );
+        let content = '<div><strong>' + escapeHtml(place.name) + '</strong><br>';
+        
+        // Aggiungi indirizzo se disponibile
+        if (place.vicinity) {
+          content += '<small>' + escapeHtml(place.vicinity) + '</small><br>';
+        }
+        
+        // Aggiungi i tipi assegnati da Google Maps
+        if (place.types && place.types.length > 0) {
+          content += '<small style="color: #666; margin-top: 8px; display: block;"><strong>Tipi:</strong> ' + 
+                     escapeHtml(place.types.join(', ')) + 
+                     '</small>';
+        }
+        
+        content += '</div>';
+        infoWindow.setContent(content);
         infoWindow.open(map, marker);
       });
 
@@ -382,7 +477,7 @@ function initMap() {
      */
     function escapeHtml(unsafe) {
       if (!unsafe) return '';
-      return unsafe.replace(/[&<>"'`]/g, function (m) {
+      return String(unsafe).replace(/[&<>"'`]/g, function (m) {
         switch (m) {
           case '&': return '&amp;';
           case '<': return '&lt;';

@@ -214,11 +214,11 @@ const data = lastPlaces.map(p => ({
 
 | File | Responsabilità |
 |------|---|
-| [server.js](server.js) | Backend Express, routing, integrazione Google Places API |
-| [public/js/map.js](public/js/map.js) | Logica frontend: mappa, disegno, ricerca, UI |
-| [views/index.ejs](views/index.ejs) | Struttura HTML, layout flexbox |
-| [public/css/styles.css](public/css/styles.css) | Styling minimalista |
-| [package.json](package.json) | Dipendenze e script npm |
+| [server.js](../server.js) | Backend Express, routing, integrazione Google Places API |
+| [public/js/map.js](../public/js/map.js) | Logica frontend: mappa, disegno, ricerca, UI |
+| [views/index.ejs](../views/index.ejs) | Struttura HTML, layout flexbox |
+| [public/css/styles.css](../public/css/styles.css) | Styling minimalista |
+| [package.json](../package.json) | Dipendenze e script npm |
 
 ## ⚠️ Gotcha e Limitazioni
 
