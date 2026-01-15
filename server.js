@@ -1,33 +1,71 @@
+/**
+ * Progetto Segretissimo - Backend Node.js/Express
+ * App per cercare ristoranti in una zona usando Google Maps API
+ */
+
+// Carica variabili ambiente dal file .env
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
 
+// Inizializza app Express
 const app = express();
-app.use(express.json());
+app.use(express.json()); // Middleware per parsare JSON nei request body
+
+// Porta di ascolto (di default 3000)
 const port = process.env.PORT || 3000;
 
+// Chiave API Google Maps caricata da .env (obbligatoria per funzionare)
 const apiKey = process.env.GOOGLE_MAPS_API_KEY || '';
 
-// Setup view engine and static folder
+// ===== CONFIGURAZIONE TEMPLATE E FILE STATICI =====
+// Imposta EJS come view engine per renderizzare i template HTML
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
+
+// Serve file statici (CSS, JS, immagini) dalla cartella "public"
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Root route: render the index and inject API key
+// ===== ROUTE PRINCIPALE =====
+/**
+ * GET /
+ * Renderizza la pagina principale (index.ejs) e injetta la chiave API di Google Maps
+ * La chiave viene passata al template e inserita nello script di caricamento Google Maps
+ */
 app.get('/', (req, res) => {
   res.render('index', { apiKey });
 });
 
-// Server-side endpoint that performs a Places REST 'searchNearby' call
+// ===== RICERCA RISTORANTI (ENDPOINT PRINCIPALE) =====
+/**
+ * POST /api/places/searchNearby
+ * Ricerca ristoranti in una zona geografica usando Google Places API
+ * 
+ * Body richiesta:
+ *   - lat: latitudine del centro cerchio (numero)
+ *   - lng: longitudine del centro cerchio (numero)
+ *   - radius: raggio di ricerca in metri (numero)
+ *   - includedTypes: tipi di posti (default: ['restaurant'])
+ *   - maxResultCount: numero massimo di risultati (default: 20)
+ * 
+ * Risposta:
+ *   { ok: true, data: { results: [...] } } oppure { ok: false, error: "motivo" }
+ */
 app.post('/api/places/searchNearby', async (req, res) => {
   try {
     console.log('Server received /api/places/searchNearby:', req.body);
+    
+    // Recupera la chiave API dai settings del server
     const apiKey = process.env.GOOGLE_MAPS_API_KEY;
     if (!apiKey) return res.status(500).json({ ok: false, error: 'Server missing Google Maps API key' });
 
+    // Estrae parametri dal body della richiesta
     const { lat, lng, radius, includedTypes = ['restaurant'], maxResultCount = 20 } = req.body || {};
+    
+    // Valida che i parametri obbligatori siano presenti
     if (!lat || !lng || !radius) return res.status(400).json({ ok: false, error: 'lat, lng and radius are required' });
 
+    // Costruisce il body della richiesta (non usato nel codice attuale, rimane per compatibilità)
     const requestBody = {
       includedTypes,
       maxResultCount,
@@ -39,12 +77,17 @@ app.post('/api/places/searchNearby', async (req, res) => {
       }
     };
 
-    // Use the classic Places Web Service 'nearbysearch' (no fieldmask required)
+    // Costruisce l'URL per l'API Google Places (versione web service classica "nearbysearch")
+    // Usa questa versione per evitare limiti lato client
     const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${Number(lat)},${Number(lng)}&radius=${Number(radius)}&type=${encodeURIComponent(includedTypes[0] || 'restaurant')}&key=${apiKey}`;
+    
+    // Tenta di usare fetch se disponibile (Node.js 18+)
     const fetchFn = (typeof fetch === 'function') ? fetch : null;
     let fetchRes;
     const fieldMask = process.env.PLACES_FIELD_MASK || 'places.displayName,places.location,places.formatted_address,places.place_id';
+    
     if (fetchFn) {
+      // Opzione 1: usa fetch moderna (Node.js 18+)
       fetchRes = await fetch(url, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
@@ -53,7 +96,7 @@ app.post('/api/places/searchNearby', async (req, res) => {
       return res.json({ ok: true, data: json });
     }
 
-    // Fallback using https if fetch isn't available
+    // Opzione 2: fallback con https per Node.js più vecchie
     const https = require('https');
     const bodyStr = JSON.stringify(requestBody);
     const parsedUrl = new URL(url);
@@ -63,6 +106,8 @@ app.post('/api/places/searchNearby', async (req, res) => {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' }
     };
+    
+    // Effettua la richiesta HTTPS e attende la risposta completa
     const result = await new Promise((resolve, reject) => {
       const reqData = https.request(options, (resp) => {
         let data = '';
@@ -73,19 +118,30 @@ app.post('/api/places/searchNearby', async (req, res) => {
       reqData.write(bodyStr);
       reqData.end();
     });
+    
+    // Parsa il JSON della risposta e lo rimanda al client
     const parsed = JSON.parse(result.body || '{}');
     return res.json({ ok: true, data: parsed });
+    
   } catch (err) {
+    // Gestisce errori (API key invalida, rete, etc.)
     console.error('Error calling server-side Places API', err);
     return res.status(500).json({ ok: false, error: err.message });
   }
 });
 
-// Status endpoint for debugging
+// ===== ENDPOINT DI DEBUG =====
+/**
+ * GET /status
+ * Endpoint per verificare se il server è online e se la chiave API è configurata
+ * Utile per il debugging
+ */
 app.get('/status', (req, res) => {
   res.json({ ok: true, hasGoogleKey: !!apiKey });
 });
 
+// ===== AVVIA IL SERVER =====
 app.listen(port, () => {
   console.log(`Server listening on http://localhost:${port}`);
+  if (!apiKey) console.warn('⚠️  GOOGLE_MAPS_API_KEY non è configurata in .env - la mappa non funzionerà');
 });
