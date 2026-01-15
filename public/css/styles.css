@@ -36,6 +36,16 @@ html, body { height: 100%; margin: 0; }
 #places-list { list-style: none; margin: 0; padding: 0; }
 .place-item { padding: .5rem .25rem; border-bottom: 1px solid #eee; cursor: pointer; }
 .place-item:hover { background: #f5f5f5; }
+.search-section-header { 
+  list-style: none;
+  padding: 8px;
+  margin-top: 8px;
+  background: #f0f0f0;
+  font-weight: bold;
+  border-left: 4px solid #999;
+  cursor: default;
+}
+.search-section-header:hover { background: #f0f0f0; }
 .more-results { display: block; margin: 1rem auto; padding: 0.5rem 1rem; }
 #controls { margin-bottom: 0.5rem; }
 #clear-circle { display: inline-block; margin-bottom: 0.5rem; }

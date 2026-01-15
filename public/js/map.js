@@ -7,6 +7,62 @@
  * 3. Quando il cerchio è completato/modificato, cerca cibo via API server
  * 4. Mostra i risultati come marker sulla mappa e come lista nella sidebar
  */
+
+// ===== CONFIGURAZIONI RICERCHE - MATRICE CENTRALIZZATA =====
+/**
+ * Matrice con le configurazioni di default per le 6 ricerche
+ * Ogni ricerca ha:
+ *   - searchNumber: numero della ricerca (1-6)
+ *   - label: etichetta descrittiva
+ *   - includedTypes: array di tipi da cercare
+ *   - excludedTypes: array di tipi da escludere
+ *   - color: colore associato per la visualizzazione
+ */
+const DEFAULT_SEARCHES = [
+  {
+    searchNumber: 1,
+    label: 'FoodMain',
+    includedTypes: ['restaurant', 'food_court'],
+    excludedTypes: ['lodging', 'meal_delivery', 'meal_takeaway', 'supermarket', 'grocery_store', 'convenience_store', 'gas_station', 'night_club', 'casino'],
+    color: '#d32f2f' // Rosso
+  },
+  {
+    searchNumber: 2,
+    label: 'FoodCafe',
+    includedTypes: ['cafe', 'bar', 'ice_cream_shop', 'bakery', 'wine_bar', 'market'],
+    excludedTypes: ['lodging', 'hotel', 'hostel', 'meal_delivery', 'meal_takeaway', 'supermarket', 'grocery_store', 'convenience_store', 'gas_station', 'night_club', 'casino'],
+    color: '#1976d2' // Blu
+  },
+  {
+    searchNumber: 3,
+    label: 'History',
+    includedTypes: ['historical_landmark', 'church', 'monument'],
+    excludedTypes: ['school', 'primary_school', 'secondary_school', 'university', 'city_hall', 'local_government_office', 'courthouse', 'embassy', 'library', 'funeral_home', 'cemetery', 'gym', 'physiotherapist', 'dentist', 'doctor'],
+    color: '#388e3c' // Verde
+  },
+  {
+    searchNumber: 4,
+    label: 'Museums',
+    includedTypes: ['museum', 'art_gallery', 'cultural_center', 'tourist_attraction'],
+    excludedTypes: ['school', 'primary_school', 'secondary_school', 'university', 'city_hall', 'local_government_office', 'courthouse', 'embassy', 'library', 'funeral_home', 'cemetery', 'gym', 'physiotherapist', 'dentist', 'doctor'],
+    color: '#7b1fa2' // Viola
+  },
+  {
+    searchNumber: 5,
+    label: 'NatureGreen',
+    includedTypes: ['park', 'garden', 'botanical_garden', 'national_park', 'beach', 'plaza'],
+    excludedTypes: ['campground', 'rv_park', 'camping_cabin', 'golf_course', 'stadium', 'playground', 'lodging', 'hotel'],
+    color: '#f57c00' // Arancio
+  },
+  {
+    searchNumber: 6,
+    label: 'Entertainment',
+    includedTypes: ['amusement_park', 'aquarium', 'zoo', 'observation_deck', 'marina'],
+    excludedTypes: ['campground', 'rv_park', 'camping_cabin', 'golf_course', 'stadium', 'playground', 'lodging', 'hotel'],
+    color: '#00897b' // Teal
+  }
+];
+
 function initMap() {
   try {
     // ===== SETUP INIZIALE MAPPA =====
@@ -23,16 +79,69 @@ function initMap() {
     const clearBtn = document.getElementById('clear-circle');    // Bottone per cancellare il cerchio
     const apiResponseEl = document.getElementById('api-response-container'); // Contenitore risposta API
     const apiResponseTextEl = document.getElementById('api-response-text');   // Testo risposta API
-    const includedTypesInput = document.getElementById('included-types'); // Input per tipi inclusi
-    const excludedTypesInput = document.getElementById('excluded-types'); // Input per tipi esclusi
     let circle = null;                                           // Variabile che tiene traccia del cerchio disegnato
     let markers = [];                                            // Array di marker sulla mappa
     let lastPlaces = [];                                         // Ultimi risultati di ricerca (per esportazione)
+    let lastPlacesBackup = [];                                   // Backup dei risultati originali (con duplicati)
     let placesService = new google.maps.places.PlacesService(map);
     let infoWindow = new google.maps.InfoWindow();              // Finestra che appare al click su un marker
     const coordsEl = document.getElementById('circle-coords');  // Span che mostra le coordinate del cerchio
     const radiusEl = document.getElementById('circle-radius');  // Span che mostra il raggio del cerchio
     const mapStatusText = document.getElementById('map-status-text'); // Span che mostra lo stato della mappa
+    const removeDuplicatesBtn = document.getElementById('remove-duplicates');    // Bottone rimuovi duplicati
+    const restoreDuplicatesBtn = document.getElementById('restore-duplicates');  // Bottone ripristina
+
+    // Funzione helper per ottenere le configurazioni delle 6 ricerche
+    // Legge i valori dagli input HTML, con fallback ai valori di default
+    function getSearchConfigs() {
+      const configs = [];
+      for (let i = 1; i <= 6; i++) {
+        const includedInput = document.querySelector(`input[data-search="${i}"][data-type="included"]`);
+        const excludedInput = document.querySelector(`input[data-search="${i}"][data-type="excluded"]`);
+        
+        // Leggi dai DEFAULT_SEARCHES oppure dagli input HTML
+        const defaults = DEFAULT_SEARCHES[i - 1];
+        
+        const includedValue = includedInput?.value || '';
+        const excludedValue = excludedInput?.value || '';
+        
+        const included = includedValue.trim().length > 0 
+          ? includedValue.split(',').map(t => t.trim()).filter(t => t.length > 0)
+          : defaults.includedTypes;
+        
+        const excluded = excludedValue.trim().length > 0 
+          ? excludedValue.split(',').map(t => t.trim()).filter(t => t.length > 0)
+          : defaults.excludedTypes;
+        
+        configs.push({
+          searchNumber: i,
+          includedTypes: included.length > 0 ? included : ['restaurant'],
+          excludedTypes: excluded.length > 0 ? excluded : []
+        });
+      }
+      return configs;
+    }
+
+    // ===== INIZIALIZZA GLI INPUT HTML CON I VALORI DI DEFAULT =====
+    // Popola gli input se non hanno già un valore
+    function initializeSearchInputs() {
+      DEFAULT_SEARCHES.forEach(search => {
+        const includedInput = document.querySelector(`input[data-search="${search.searchNumber}"][data-type="included"]`);
+        const excludedInput = document.querySelector(`input[data-search="${search.searchNumber}"][data-type="excluded"]`);
+        
+        if (includedInput && !includedInput.value) {
+          includedInput.value = search.includedTypes.join(', ');
+        }
+        
+        if (excludedInput && !excludedInput.value) {
+          excludedInput.value = search.excludedTypes.join(', ');
+        }
+      });
+    }
+
+    // ===== INIZIALIZZAZIONE DEGLI INPUT =====
+    // Popola gli input HTML con i valori di default da DEFAULT_SEARCHES
+    initializeSearchInputs();
 
     // ===== DRAWING MANAGER (Strumento di disegno cerchi) =====
     /**
@@ -172,6 +281,31 @@ function initMap() {
       searchPlaces(circle); // Ricerca nuovi risultati con il cerchio attuale
     });
 
+    // ===== EVENT LISTENER: BOTTONE "RIMUOVI DUPLICATI" =====
+    /**
+     * Quando l'utente clicca "Rimuovi duplicati":
+     * 1. Crea un backup dei risultati originali (con duplicati)
+     * 2. Filtra lastPlaces per mantenere solo i non-duplicati
+     * 3. Ricrea marker e lista sulla sidebar
+     * 4. Mostra il bottone "Ripristina"
+     */
+    if (removeDuplicatesBtn) removeDuplicatesBtn.addEventListener('click', () => {
+      if (lastPlaces.length === 0) {
+        alert('Nessun risultato da pulire');
+        return;
+      }
+      removeDuplicatesFromList();
+    });
+
+    // ===== EVENT LISTENER: BOTTONE "RIPRISTINA TUTTI" =====
+    /**
+     * Quando l'utente clicca "Ripristina tutti":
+     * Ripristina i risultati originali (con duplicati)
+     */
+    if (restoreDuplicatesBtn) restoreDuplicatesBtn.addEventListener('click', () => {
+      restoreDuplicatesToList();
+    });
+
     // ===== EVENT LISTENER: BOTTONE "RICARICA MAPPA" =====
     /**
      * Ricarica tutta la pagina per resettare la mappa
@@ -246,8 +380,8 @@ function initMap() {
      * Processo:
      * 1. Cancella i marker e la lista precedenti
      * 2. Estrae il centro e il raggio del cerchio
-     * 3. Invia i dati al server via POST (/api/places/searchNearby)
-     * 4. Riceve i risultati e crea marker + lista per ogni ristorante
+     * 3. Invia 6 richieste parallele al server (/api/places/searchNearby) con configurazioni diverse
+     * 4. Raggruppa i risultati per ricerca e li mostra organizzati nella sidebar
      * 5. Aggiorna lo stato nella sidebar
      */
     async function searchPlaces(circle) {
@@ -263,116 +397,187 @@ function initMap() {
       console.log('Searching restaurants for:', centerLatLng, 'radius:', radius);
 
       try {
-        // ===== RICHIESTA AL SERVER =====
+        // ===== 6 RICHIESTE PARALLELE AL SERVER =====
         /**
-         * Invia le coordinate, il raggio e i tipi di cibo al server
-         * Il server utilizzerà Google Places API per cercare cibo
+         * Ottieni le configurazioni per le 6 ricerche e invia tutte le richieste in parallelo
+         * Promise.all aspetta che tutte le 6 ricerche siano completate
          */
-        // Estrai i tipi inclusi ed esclusi dagli input
-        const includedTypes = includedTypesInput.value
-          .split(',')
-          .map(t => t.trim())
-          .filter(t => t.length > 0);
-        const excludedTypes = excludedTypesInput.value
-          .split(',')
-          .map(t => t.trim())
-          .filter(t => t.length > 0);
-        
-        const payload = { 
-          lat: center.lat(), 
-          lng: center.lng(), 
-          radius,
-          includedTypes: includedTypes.length > 0 ? includedTypes : ['restaurant'],
-          excludedTypes
-        };
-        const response = await fetch('/api/places/searchNearby', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        const json = await response.json();
-        
-        // ===== MOSTRA LA RISPOSTA JSON COMPLETA =====
-        /**
-         * Mostra la risposta JSON completa in basso a sinistra
-         * Utile per il debugging e la visualizzazione della risposta API
-         */
-        if (apiResponseEl && apiResponseTextEl) {
-          apiResponseTextEl.innerText = JSON.stringify(json, null, 2);
-          apiResponseEl.style.display = 'block';
-        }
-        
-        // Controlla se la ricerca è andata a buon fine
-        if (!json.ok) {
-          const li = document.createElement('li');
-          li.className = 'place-item';
-          li.textContent = `Ricerca fallita: ${json.error || 'errore sconosciuto'}`;
-          placesListEl.appendChild(li);
-          return;
-        }
-
-        // ===== ELABORAZIONE RISULTATI =====
-        const data = json.data || {};
-        const results = data.places || [];
-        
-        // Se non ci sono risultati, mostra un messaggio
-        if (!results || results.length === 0) {
-          const li = document.createElement('li');
-          li.className = 'place-item';
-          li.textContent = 'Nessun cibo trovato in quest\'area.';
-          placesListEl.appendChild(li);
-          if (typeof window.setMapStatus === 'function') window.setMapStatus('Nessun cibo trovato');
-          return;
-        }
-
-        // ===== PER OGNI LUOGO: CREA MARKER E VOCE LISTA =====
-        results.forEach((place) => {
-          // La risposta v1 ha coordinate in location.latitude e location.longitude
-          
-          // Estrai le coordinate (formato v1: location.latitude/longitude)
-          let latLng = null;
-          if (place.location && place.location.latitude !== undefined && place.location.longitude !== undefined) {
-            latLng = { lat: place.location.latitude, lng: place.location.longitude };
-          }
-          
-          // Se non trovi coordinate, salta questo luogo
-          if (!latLng) return;
-          
-          // Normalizza i dati in un formato coerente
-          // Nota: displayName potrebbe essere un oggetto {text: "..."} oppure una stringa
-          const displayNameValue = typeof place.displayName === 'object' && place.displayName.text 
-            ? place.displayName.text 
-            : place.displayName;
-          
-          const simplified = {
-            name: displayNameValue || 'Sconosciuto',
-            vicinity: place.formattedAddress || '',
-            place_id: place.id || null,
-            geometry: { location: { lat: latLng.lat, lng: latLng.lng } },
-            types: place.types || [],  // Array di tipi assegnati da Google Maps API
+        const searchConfigs = getSearchConfigs();
+        const searchPromises = searchConfigs.map(config => {
+          const payload = { 
+            lat: center.lat(), 
+            lng: center.lng(), 
+            radius,
+            includedTypes: config.includedTypes,
+            excludedTypes: config.excludedTypes
           };
           
-          // Aggiungi il marker sulla mappa
-          addPlaceMarker(simplified);
+          console.log(`Ricerca ${config.searchNumber}:`, payload);
           
-          // Salva nei risultati (per esportazione)
-          lastPlaces.push(simplified);
-          
-          // Aggiorna il contatore nella sidebar
-          if (typeof window.setMapStatus === 'function') 
-            window.setMapStatus(`Trovati ${lastPlaces.length} piatti/locali`);
-          
-          // Abilita il bottone di esportazione ora che abbiamo risultati
-          if (exportBtn) exportBtn.disabled = false;
+          return fetch('/api/places/searchNearby', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          })
+          .then(response => response.json())
+          .then(json => ({ searchNumber: config.searchNumber, data: json }))
+          .catch(err => ({ searchNumber: config.searchNumber, error: err.message }));
         });
+
+        // Esegui tutte le 6 ricerche in parallelo
+        const allResults = await Promise.all(searchPromises);
+        
+        // ===== MOSTRA LE RISPOSTE JSON COMPLETE =====
+        if (apiResponseEl && apiResponseTextEl) {
+          apiResponseTextEl.innerText = JSON.stringify(allResults, null, 2);
+          apiResponseEl.style.display = 'block';
+        }
+
+        // ===== RAGGRUPPAMENTO RISULTATI PER RICERCA =====
+        /**
+         * Organizza i risultati in gruppi, uno per ogni ricerca
+         * Formato: { searchNumber: 1, count: 5, places: [...] }
+         */
+        const groupedResults = {};
+        let totalResults = 0;
+        
+        allResults.forEach(result => {
+          if (result.error) {
+            console.error(`Ricerca ${result.searchNumber} fallita:`, result.error);
+            groupedResults[result.searchNumber] = { searchNumber: result.searchNumber, count: 0, places: [], error: result.error };
+            return;
+          }
+          
+          const json = result.data;
+          if (!json.ok) {
+            console.error(`Ricerca ${result.searchNumber} fallita:`, json.error);
+            groupedResults[result.searchNumber] = { searchNumber: result.searchNumber, count: 0, places: [], error: json.error };
+            return;
+          }
+
+          const data = json.data || {};
+          const results = data.places || [];
+          const places = [];
+          
+          results.forEach((place) => {
+            // La risposta v1 ha coordinate in location.latitude e location.longitude
+            let latLng = null;
+            if (place.location && place.location.latitude !== undefined && place.location.longitude !== undefined) {
+              latLng = { lat: place.location.latitude, lng: place.location.longitude };
+            }
+            
+            // Se non trovi coordinate, salta questo luogo
+            if (!latLng) return;
+            
+            // Normalizza i dati in un formato coerente
+            const displayNameValue = typeof place.displayName === 'object' && place.displayName.text 
+              ? place.displayName.text 
+              : place.displayName;
+            
+            const simplified = {
+              name: displayNameValue || 'Sconosciuto',
+              vicinity: place.formattedAddress || '',
+              place_id: place.id || null,
+              geometry: { location: { lat: latLng.lat, lng: latLng.lng } },
+              types: place.types || [],
+              searchSource: `Ricerca ${result.searchNumber}`  // Traccia quale ricerca ha trovato questo luogo
+            };
+            
+            // Aggiungi il marker sulla mappa
+            addPlaceMarker(simplified);
+            
+            // Salva nei risultati (per esportazione)
+            lastPlaces.push(simplified);
+            places.push(simplified);
+            totalResults++;
+          });
+          
+          groupedResults[result.searchNumber] = { 
+            searchNumber: result.searchNumber, 
+            count: places.length, 
+            places 
+          };
+        });
+
+        // ===== RENDERING SIDEBAR CON RISULTATI RAGGRUPPATI =====
+        // Se non ci sono risultati da nessuna ricerca
+        if (totalResults === 0) {
+          const li = document.createElement('li');
+          li.className = 'place-item';
+          li.style.padding = '10px';
+          li.style.fontStyle = 'italic';
+          li.textContent = 'Nessun risultato trovato in quest\'area.';
+          placesListEl.appendChild(li);
+          if (typeof window.setMapStatus === 'function') window.setMapStatus('Nessun risultato trovato');
+          return;
+        }
+
+        // Mostra ogni ricerca con i suoi risultati
+        for (let i = 1; i <= 6; i++) {
+          const group = groupedResults[i];
+          
+          // Crea un header per ogni ricerca
+          const header = document.createElement('li');
+          header.className = 'search-section-header';
+          header.style.backgroundColor = '#f0f0f0';
+          header.style.padding = '8px';
+          header.style.fontWeight = 'bold';
+          header.style.marginTop = '8px';
+          header.style.cursor = 'default';
+          header.style.borderLeft = '4px solid ' + getSearchColor(i);
+          header.style.listStyle = 'none';
+          
+          if (group.error) {
+            header.textContent = `🔴 Ricerca ${i}: Errore (${group.error})`;
+          } else {
+            header.textContent = `Ricerca ${i}: ${group.count} risultato${group.count !== 1 ? 'i' : ''}`;
+          }
+          placesListEl.appendChild(header);
+          
+          // Mostra i risultati di questa ricerca
+          if (group.places && group.places.length > 0) {
+            group.places.forEach(place => {
+              addPlaceToList(place, null);
+            });
+          } else if (!group.error) {
+            const emptyItem = document.createElement('li');
+            emptyItem.className = 'place-item';
+            emptyItem.style.fontSize = '0.9rem';
+            emptyItem.style.color = '#999';
+            emptyItem.style.paddingLeft = '20px';
+            emptyItem.textContent = '(nessun risultato)';
+            placesListEl.appendChild(emptyItem);
+          }
+        }
+
+        // Aggiorna il contatore nella sidebar
+        if (typeof window.setMapStatus === 'function') 
+          window.setMapStatus(`Trovati ${totalResults} risultati dalle 6 ricerche`);
+        
+        // Abilita il bottone di esportazione ora che abbiamo risultati
+        if (exportBtn) exportBtn.disabled = false;
+        
+        // Controlla e mostra i duplicati nella pagina
+        checkDuplicates();
+        
       } catch (err) {
         // Gestisci errori di rete o parsing
-        console.error('Server-side search failed', err);
+        console.error('Search failed', err);
         const li = document.createElement('li');
         li.className = 'place-item';
         li.textContent = `Ricerca fallita: ${err.message}`;
         placesListEl.appendChild(li);
       }
+    }
+
+    // ===== FUNZIONE HELPER: COLORE DELLA RICERCA =====
+    /**
+     * Restituisce il colore associato a ogni ricerca per identificarla visivamente
+     * I colori sono definiti in DEFAULT_SEARCHES
+     */
+    function getSearchColor(searchNumber) {
+      const search = DEFAULT_SEARCHES[searchNumber - 1];
+      return search ? search.color : '#999';
     }
 
     // ===== FUNZIONE: AGGIORNA INFO CERCHIO =====
@@ -425,6 +630,13 @@ function initMap() {
                      '</small>';
         }
         
+        // Aggiungi la fonte della ricerca
+        if (place.searchSource) {
+          content += '<small style="color: #999; margin-top: 5px; display: block; font-style: italic;">Fonte: ' + 
+                     escapeHtml(place.searchSource) + 
+                     '</small>';
+        }
+        
         content += '</div>';
         infoWindow.setContent(content);
         infoWindow.open(map, marker);
@@ -446,6 +658,7 @@ function initMap() {
       const el = document.createElement('li');
       el.className = 'place-item';
       el.tabIndex = 0; // Rendi focusabile per accessibilità da tastiera
+      el.style.paddingLeft = '15px'; // Indentazione per distinguere dai header
       
       // Mostra nome e indirizzo, usando escapeHtml per evitare XSS
       el.innerHTML = `<strong>${escapeHtml(place.name)}</strong><br/><small>${escapeHtml(place.vicinity || '')}</small>`;
@@ -454,7 +667,19 @@ function initMap() {
       el.addEventListener('click', () => {
         map.panTo(place.geometry.location);      // Centra la mappa su quel punto
         map.setZoom(16);                         // Zoom in al livello 16
-        google.maps.event.trigger(marker, 'click'); // Apri la InfoWindow del marker
+        
+        // Se marker è null, cerca il marker che corrisponde a questo place
+        if (!marker) {
+          marker = markers.find(m => 
+            m.getPosition().lat() === place.geometry.location.lat &&
+            m.getPosition().lng() === place.geometry.location.lng
+          );
+        }
+        
+        // Se trovi il marker, apri la InfoWindow
+        if (marker) {
+          google.maps.event.trigger(marker, 'click');
+        }
       });
       
       placesListEl.appendChild(el);
@@ -469,6 +694,271 @@ function initMap() {
       markers.forEach(m => m.setMap(null)); // setMap(null) rimuove il marker dalla mappa
       markers = []; // Resetta l'array
     }
+
+    // ===== FUNZIONE: RIMUOVI DUPLICATI DALLA LISTA =====
+    /**
+     * removeDuplicatesFromList() - Filtra i duplicati e mostra solo i non-duplicati
+     * 
+     * Processo:
+     * 1. Crea un backup di lastPlaces (con duplicati)
+     * 2. Filtra lastPlaces per mantenere solo il primo occurrence di ogni place_id
+     * 3. Pulisce marker e sidebar
+     * 4. Ricrea completamente tutta la lista nella sidebar
+     * 5. Mostra il bottone "Ripristina"
+     */
+    function removeDuplicatesFromList() {
+      // Crea backup se non esiste già
+      if (lastPlacesBackup.length === 0) {
+        lastPlacesBackup = JSON.parse(JSON.stringify(lastPlaces));
+      }
+      
+      const seen = new Set();
+      const uniquePlaces = [];
+      
+      // Mantieni solo il primo occurrence di ogni place_id
+      lastPlaces.forEach(place => {
+        if (!seen.has(place.place_id)) {
+          seen.add(place.place_id);
+          uniquePlaces.push(place);
+        }
+      });
+      
+      // Aggiorna lastPlaces con i soli non-duplicati
+      lastPlaces = uniquePlaces;
+      
+      // ===== RIPULISCI COMPLETAMENTE MARKER E SIDEBAR =====
+      clearMarkers();
+      placesListEl.innerHTML = '';
+      
+      // ===== RICREA MARKER SULLA MAPPA =====
+      // Ricrea i marker per i soli non-duplicati
+      lastPlaces.forEach(place => {
+        addPlaceMarker(place);
+      });
+      
+      // ===== RICREA COMPLETAMENTE LA LISTA =====
+      // Ricostruisci la lista nella sidebar raggruppando per ricerca
+      rebuildPlacesList();
+      
+      // Aggiorna lo stato
+      if (typeof window.setMapStatus === 'function') 
+        window.setMapStatus(`Mostrando ${lastPlaces.length} risultati unici`);
+      
+      // Mostra/nascondi bottoni
+      if (removeDuplicatesBtn) removeDuplicatesBtn.style.display = 'none';
+      if (restoreDuplicatesBtn) restoreDuplicatesBtn.style.display = 'inline-block';
+      
+      // Ricalcola e mostra l'analisi dei duplicati aggiornata (post-pulizia)
+      checkDuplicates();
+    }
+
+    // ===== FUNZIONE: RIPRISTINA DUPLICATI =====
+    /**
+     * restoreDuplicatesToList() - Ripristina i risultati originali (con duplicati)
+     * 
+     * Restituisce alla visualizzazione originale con tutti i risultati
+     */
+    function restoreDuplicatesToList() {
+      if (lastPlacesBackup.length === 0) return;
+      
+      // Ripristina i dati originali
+      lastPlaces = JSON.parse(JSON.stringify(lastPlacesBackup));
+      
+      // Ripulisci marker e sidebar
+      clearMarkers();
+      placesListEl.innerHTML = '';
+      
+      // Ricrea marker e lista con tutti i risultati
+      lastPlaces.forEach(place => {
+        addPlaceMarker(place);
+      });
+      
+      // Aggiorna la sidebar
+      rebuildPlacesList();
+      
+      // Aggiorna lo stato
+      if (typeof window.setMapStatus === 'function') 
+        window.setMapStatus(`Trovati ${lastPlaces.length} risultati dalle 6 ricerche`);
+      
+      // Mostra/nascondi bottoni
+      if (removeDuplicatesBtn) removeDuplicatesBtn.style.display = 'inline-block';
+      if (restoreDuplicatesBtn) restoreDuplicatesBtn.style.display = 'none';
+      
+      // Ricalcola e mostra i duplicati
+      checkDuplicates();
+    }
+
+    // ===== FUNZIONE: RICOSTRUISCI LISTA NELLA SIDEBAR =====
+    /**
+     * rebuildPlacesList() - Ricostruisce la lista nella sidebar con i risultati attuali
+     * Mostra i risultati raggruppati per ricerca (solo non-duplicati)
+     */
+    function rebuildPlacesList() {
+      placesListEl.innerHTML = '';
+      
+      if (lastPlaces.length === 0) {
+        const li = document.createElement('li');
+        li.className = 'place-item';
+        li.textContent = 'Nessun risultato.';
+        placesListEl.appendChild(li);
+        return;
+      }
+      
+      // Filtra i duplicati - mostra solo il primo occurrence di ogni place_id
+      const seen = new Set();
+      const uniquePlaces = [];
+      lastPlaces.forEach(place => {
+        if (!seen.has(place.place_id)) {
+          seen.add(place.place_id);
+          uniquePlaces.push(place);
+        }
+      });
+      
+      // Raggruppa per ricerca
+      const groupedBySearch = {};
+      uniquePlaces.forEach(place => {
+        const searchNum = place.searchSource ? place.searchSource.match(/\d+/)[0] : '?';
+        if (!groupedBySearch[searchNum]) {
+          groupedBySearch[searchNum] = [];
+        }
+        groupedBySearch[searchNum].push(place);
+      });
+      
+      // Mostra raggruppato
+      for (let i = 1; i <= 6; i++) {
+        const places = groupedBySearch[i] || [];
+        
+        const header = document.createElement('li');
+        header.className = 'search-section-header';
+        header.style.backgroundColor = '#f0f0f0';
+        header.style.padding = '8px';
+        header.style.fontWeight = 'bold';
+        header.style.marginTop = '8px';
+        header.style.cursor = 'default';
+        header.style.borderLeft = '4px solid ' + getSearchColor(i);
+        header.style.listStyle = 'none';
+        header.textContent = `Ricerca ${i}: ${places.length} risultato${places.length !== 1 ? 'i' : ''}`;
+        placesListEl.appendChild(header);
+        
+        if (places.length > 0) {
+          places.forEach(place => {
+            addPlaceToList(place, null);
+          });
+        } else {
+          const emptyItem = document.createElement('li');
+          emptyItem.className = 'place-item';
+          emptyItem.style.fontSize = '0.9rem';
+          emptyItem.style.color = '#999';
+          emptyItem.style.paddingLeft = '20px';
+          emptyItem.textContent = '(nessun risultato)';
+          placesListEl.appendChild(emptyItem);
+        }
+      }
+    }
+
+    // ===== FUNZIONE: CONTROLLA DUPLICATI =====
+    /**
+     * checkDuplicates() - Verifica se ci sono duplicati in lastPlaces basato su place_id
+     * 
+     * Restituisce un oggetto con:
+     *   - hasDuplicates: boolean (true se ci sono duplicati)
+     *   - count: numero totale di elementi
+     *   - uniqueCount: numero di elementi unici
+     *   - duplicates: array con i place_id che compaiono più volte
+     *   - duplicateDetails: oggetto con dettagli per ogni duplicato
+     */
+    function checkDuplicates() {
+      const seen = {}; // { place_id: count }
+      const duplicateIds = new Set();
+      
+      // Conta quante volte appare ogni place_id
+      lastPlaces.forEach(place => {
+        const id = place.place_id;
+        if (id) {
+          seen[id] = (seen[id] || 0) + 1;
+          if (seen[id] > 1) {
+            duplicateIds.add(id);
+          }
+        }
+      });
+      
+      // Crea dettagli dei duplicati
+      const duplicateDetails = {};
+      duplicateIds.forEach(id => {
+        duplicateDetails[id] = {
+          count: seen[id],
+          places: lastPlaces.filter(p => p.place_id === id).map(p => ({
+            name: p.name,
+            searchSource: p.searchSource
+          }))
+        };
+      });
+      
+      const hasDuplicates = duplicateIds.size > 0;
+      const uniqueCount = Object.keys(seen).length;
+      
+      const result = {
+        hasDuplicates,
+        count: lastPlaces.length,
+        uniqueCount,
+        duplicates: Array.from(duplicateIds),
+        duplicateDetails,
+        // Funzione helper per stampa in console
+        log: function() {
+          console.log('=== ANALISI DUPLICATI ===');
+          console.log(`Totale elementi: ${this.count}`);
+          console.log(`Elementi unici: ${this.uniqueCount}`);
+          console.log(`Duplicati trovati: ${this.duplicates.length}`);
+          if (this.hasDuplicates) {
+            console.log('Dettagli duplicati:');
+            this.duplicates.forEach(id => {
+              console.log(`  [${id}] - ${this.duplicateDetails[id].count} occorrenze`);
+              this.duplicateDetails[id].places.forEach(p => {
+                console.log(`    → ${p.name} (${p.searchSource})`);
+              });
+            });
+          } else {
+            console.log('✅ Nessun duplicato trovato!');
+          }
+        }
+      };
+      
+      // ===== MOSTRA RISULTATI NELLA PAGINA =====
+      const duplicatesInfoEl = document.getElementById('duplicates-info');
+      const duplicatesContentEl = document.getElementById('duplicates-content');
+      
+      if (duplicatesInfoEl && duplicatesContentEl) {
+        if (hasDuplicates) {
+          // Mostra il box dei duplicati
+          duplicatesInfoEl.style.display = 'block';
+          
+          // Costruisci il contenuto HTML
+          let html = `<strong>Trovati ${result.duplicates.length} ${result.duplicates.length === 1 ? 'luogo' : 'luoghi'} ${result.duplicates.length === 1 ? 'duplicato' : 'duplicati'}:</strong><br>`;
+          html += `<small style="color: #666;">Totale: ${result.count} | Unici: ${result.uniqueCount}</small><br><br>`;
+          
+          result.duplicates.forEach(id => {
+            const detail = result.duplicateDetails[id];
+            html += `<div style="margin-bottom: 8px; padding: 5px; background: #fff; border-radius: 3px; border-left: 3px solid #ff9800;">`;
+            html += `<strong>${escapeHtml(detail.places[0].name)}</strong><br>`;
+            html += `<small style="color: #999;">${detail.count} occorrenze:</small><br>`;
+            detail.places.forEach(p => {
+              html += `<small style="display: block; color: #666; margin-left: 10px;">• ${escapeHtml(p.searchSource)}</small>`;
+            });
+            html += `</div>`;
+          });
+          
+          duplicatesContentEl.innerHTML = html;
+        } else {
+          // Nascondi il box se non ci sono duplicati
+          duplicatesInfoEl.style.display = 'none';
+        }
+      }
+      
+      return result;
+    }
+
+    // Esponi la funzione globalmente per il debugging
+    if (typeof window !== 'undefined') window.checkDuplicates = checkDuplicates;
 
     // ===== FUNZIONE HELPER: ESCAPE HTML =====
     /**
