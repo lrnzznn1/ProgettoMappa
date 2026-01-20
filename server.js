@@ -55,6 +55,7 @@ app.get('/', (req, res) => {
  */
 app.post('/api/places/searchNearby', async (req, res) => {
   try {
+    console.log('\n=== 📋 RICHIESTA RICERCA RICEVUTA ===');
     console.log('Server received /api/places/searchNearby:', req.body);
     
     // Recupera la chiave API dai settings del server
@@ -66,6 +67,11 @@ app.post('/api/places/searchNearby', async (req, res) => {
     
     // Valida che i parametri obbligatori siano presenti
     if (!lat || !lng || !radius) return res.status(400).json({ ok: false, error: 'lat, lng and radius are required' });
+    
+    // LOG DI DEBUG: Mostra coordinate effettive usate
+    console.log(`✓ Coordinate ricerca: LAT=${lat}, LNG=${lng}, RADIUS=${radius}m`);
+    console.log(`✓ Tipi inclusi: [${includedTypes.join(', ')}]`);
+    console.log(`✓ Tipi esclusi: [${excludedTypes.join(', ')}]`);
 
     // Costruisce il body della richiesta per l'API v1
     const requestBody = {

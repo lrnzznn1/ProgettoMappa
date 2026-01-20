@@ -111,7 +111,13 @@
           <p>Imposta la chiave API Google Maps in `.env` (GOOGLE_MAPS_API_KEY) e riavvia il server.</p>
         </div>
       </div>
-    <!-- Load local script first to define initMap, then load Google Maps JS API with callback -->
+    <!-- Load modular JavaScript files -->
+    <script src="/js/config.js"></script>
+    <script src="/js/geometry.js"></script>
+    <script src="/js/ui.js"></script>
+    <script src="/js/markers.js"></script>
+    <script src="/js/duplicates.js"></script>
+    <script src="/js/search.js"></script>
     <script src="/js/map.js"></script>
     <script
       src="https://maps.googleapis.com/maps/api/js?key=<%= apiKey %>&callback=initMap&libraries=drawing,places&v=weekly"
