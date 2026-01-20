@@ -10,52 +10,94 @@
 
 // ===== CONFIGURAZIONI RICERCHE - MATRICE CENTRALIZZATA =====
 /**
- * Matrice con le configurazioni di default per le 6 ricerche
+ * Matrice con le configurazioni di default per le ricerche
  * Ogni ricerca ha:
- *   - searchNumber: numero della ricerca (1-6)
+ *   - searchNumber: numero della ricerca (1-9)
  *   - label: etichetta descrittiva
  *   - includedTypes: array di tipi da cercare
  *   - excludedTypes: array di tipi da escludere
  *   - color: colore associato per la visualizzazione
+ *   - radius: raggio specifico per la ricerca (optional, default: raggio del cerchio)
+ *   - offsetLat: offset in latitudine dal centro (optional, in gradi decimali)
+ *   - offsetLng: offset in longitudine dal centro (optional, in gradi decimali)
+ * 
+ * NOTA: Le ricerche 1a-1d sono varianti SPAZIALI della ricerca 1 (FoodMain)
+ * con raggi e offset diversi. Le ricerche 2-6 restano come prima.
  */
 const DEFAULT_SEARCHES = [
+  // ===== RICERCA 1: RESTAURANT - 4 VARIANTI SPAZIALI =====
   {
     searchNumber: 1,
-    label: 'FoodMain',
+    label: 'FoodMain-NordOvest',
     includedTypes: ['restaurant', 'food_court'],
     excludedTypes: ['lodging', 'meal_delivery', 'meal_takeaway', 'supermarket', 'grocery_store', 'convenience_store', 'gas_station', 'night_club', 'casino'],
-    color: '#d32f2f' // Rosso
+    color: '#d32f2f', // Rosso
+    radius: 1500,     // Raggio in metri
+    offsetLat: 0.015, // ~1.5 km Nord (lat aumenta verso Nord)
+    offsetLng: -0.015 // ~1.5 km Ovest (lng diminuisce verso Ovest)
   },
   {
     searchNumber: 2,
+    label: 'FoodMain-NordEst',
+    includedTypes: ['restaurant', 'food_court'],
+    excludedTypes: ['lodging', 'meal_delivery', 'meal_takeaway', 'supermarket', 'grocery_store', 'convenience_store', 'gas_station', 'night_club', 'casino'],
+    color: '#ff6f00', // Arancio
+    radius: 1500,
+    offsetLat: 0.015,  // Nord
+    offsetLng: 0.015   // Est
+  },
+  {
+    searchNumber: 3,
+    label: 'FoodMain-SudOvest',
+    includedTypes: ['restaurant', 'food_court'],
+    excludedTypes: ['lodging', 'meal_delivery', 'meal_takeaway', 'supermarket', 'grocery_store', 'convenience_store', 'gas_station', 'night_club', 'casino'],
+    color: '#1565c0', // Blu
+    radius: 1500,
+    offsetLat: -0.015, // Sud (lat diminuisce verso Sud)
+    offsetLng: -0.015  // Ovest
+  },
+  {
+    searchNumber: 4,
+    label: 'FoodMain-SudEst',
+    includedTypes: ['restaurant', 'food_court'],
+    excludedTypes: ['lodging', 'meal_delivery', 'meal_takeaway', 'supermarket', 'grocery_store', 'convenience_store', 'gas_station', 'night_club', 'casino'],
+    color: '#2e7d32', // Verde
+    radius: 1500,
+    offsetLat: -0.015, // Sud
+    offsetLng: 0.015   // Est
+  },
+  
+  // ===== RICERCHE 5-9: COME PRIMA =====
+  {
+    searchNumber: 5,
     label: 'FoodCafe',
     includedTypes: ['cafe', 'bar', 'ice_cream_shop', 'bakery', 'wine_bar', 'market'],
     excludedTypes: ['lodging', 'hotel', 'hostel', 'meal_delivery', 'meal_takeaway', 'supermarket', 'grocery_store', 'convenience_store', 'gas_station', 'night_club', 'casino'],
     color: '#1976d2' // Blu
   },
   {
-    searchNumber: 3,
+    searchNumber: 6,
     label: 'History',
     includedTypes: ['historical_landmark', 'church', 'monument'],
     excludedTypes: ['school', 'primary_school', 'secondary_school', 'university', 'city_hall', 'local_government_office', 'courthouse', 'embassy', 'library', 'funeral_home', 'cemetery', 'gym', 'physiotherapist', 'dentist', 'doctor'],
     color: '#388e3c' // Verde
   },
   {
-    searchNumber: 4,
+    searchNumber: 7,
     label: 'Museums',
     includedTypes: ['museum', 'art_gallery', 'cultural_center', 'tourist_attraction'],
     excludedTypes: ['school', 'primary_school', 'secondary_school', 'university', 'city_hall', 'local_government_office', 'courthouse', 'embassy', 'library', 'funeral_home', 'cemetery', 'gym', 'physiotherapist', 'dentist', 'doctor'],
     color: '#7b1fa2' // Viola
   },
   {
-    searchNumber: 5,
+    searchNumber: 8,
     label: 'NatureGreen',
     includedTypes: ['park', 'garden', 'botanical_garden', 'national_park', 'beach', 'plaza'],
     excludedTypes: ['campground', 'rv_park', 'camping_cabin', 'golf_course', 'stadium', 'playground', 'lodging', 'hotel'],
     color: '#f57c00' // Arancio
   },
   {
-    searchNumber: 6,
+    searchNumber: 9,
     label: 'Entertainment',
     includedTypes: ['amusement_park', 'aquarium', 'zoo', 'observation_deck', 'marina'],
     excludedTypes: ['campground', 'rv_park', 'camping_cabin', 'golf_course', 'stadium', 'playground', 'lodging', 'hotel'],
@@ -88,34 +130,50 @@ function initMap() {
     const radiusEl = document.getElementById('circle-radius');  // Span che mostra il raggio del cerchio
     const mapStatusText = document.getElementById('map-status-text'); // Span che mostra lo stato della mappa
 
-    // Funzione helper per ottenere le configurazioni delle 6 ricerche
+    // Funzione helper per ottenere le configurazioni delle 9 ricerche
     // Legge i valori dagli input HTML, con fallback ai valori di default
     function getSearchConfigs() {
       const configs = [];
-      for (let i = 1; i <= 6; i++) {
-        const includedInput = document.querySelector(`input[data-search="${i}"][data-type="included"]`);
-        const excludedInput = document.querySelector(`input[data-search="${i}"][data-type="excluded"]`);
-        
-        // Leggi dai DEFAULT_SEARCHES oppure dagli input HTML
-        const defaults = DEFAULT_SEARCHES[i - 1];
-        
-        const includedValue = includedInput?.value || '';
-        const excludedValue = excludedInput?.value || '';
-        
-        const included = includedValue.trim().length > 0 
-          ? includedValue.split(',').map(t => t.trim()).filter(t => t.length > 0)
-          : defaults.includedTypes;
-        
-        const excluded = excludedValue.trim().length > 0 
-          ? excludedValue.split(',').map(t => t.trim()).filter(t => t.length > 0)
-          : defaults.excludedTypes;
-        
-        configs.push({
-          searchNumber: i,
-          includedTypes: included.length > 0 ? included : ['restaurant'],
-          excludedTypes: excluded.length > 0 ? excluded : []
-        });
-      }
+      // Usa tutte le 9 ricerche da DEFAULT_SEARCHES (non più solo 6)
+      DEFAULT_SEARCHES.forEach((search, index) => {
+        // Per le ricerche personalizzabili (non la ricerca 1 con offset)
+        if (search.searchNumber > 4) {
+          const includedInput = document.querySelector(`input[data-search="${search.searchNumber}"][data-type="included"]`);
+          const excludedInput = document.querySelector(`input[data-search="${search.searchNumber}"][data-type="excluded"]`);
+          
+          const includedValue = includedInput?.value || '';
+          const excludedValue = excludedInput?.value || '';
+          
+          const included = includedValue.trim().length > 0 
+            ? includedValue.split(',').map(t => t.trim()).filter(t => t.length > 0)
+            : search.includedTypes;
+          
+          const excluded = excludedValue.trim().length > 0 
+            ? excludedValue.split(',').map(t => t.trim()).filter(t => t.length > 0)
+            : search.excludedTypes;
+          
+          configs.push({
+            searchNumber: search.searchNumber,
+            includedTypes: included.length > 0 ? included : ['restaurant'],
+            excludedTypes: excluded.length > 0 ? excluded : [],
+            radius: search.radius,
+            offsetLat: search.offsetLat,
+            offsetLng: search.offsetLng,
+            color: search.color
+          });
+        } else {
+          // Per le ricerche 1-4 (Food variants) copia direttamente da DEFAULT_SEARCHES
+          configs.push({
+            searchNumber: search.searchNumber,
+            includedTypes: search.includedTypes,
+            excludedTypes: search.excludedTypes,
+            radius: search.radius,
+            offsetLat: search.offsetLat,
+            offsetLng: search.offsetLng,
+            color: search.color
+          });
+        }
+      });
       return configs;
     }
 
@@ -186,6 +244,7 @@ function initMap() {
     const maxRadius = 5000; // 10 km in metri - vincolo massimo
     let isAdjustingRadius = false; // Flag per evitare loop infiniti
     let radiusCheckInterval = null; // Interval per controllare il raggio durante il disegno
+    let offsetCircles = []; // Array per i 4 cerchi offset delle ricerche restaurant (1-4)
     
     // ===== POLLING PER LIMITARE RAGGIO DURANTE DISEGNO =====
     /**
@@ -216,6 +275,9 @@ function initMap() {
         isAdjustingRadius = false;
       }
       
+      // Crea i 4 cerchi offset per le ricerche restaurant 1-4
+      createOffsetCircles();
+      
       // Aggiungi listener per quando l'utente modifica il cerchio (sposta o cambia raggio)
       circle.addListener('radius_changed', () => { 
         // Evita loop infiniti quando limitiamo il raggio
@@ -229,10 +291,12 @@ function initMap() {
           return; // Esci senza ricercare
         }
         updateCircleInfo(circle);    // Aggiorna i numeri nella sidebar
+        updateOffsetCircles();        // Aggiorna i 4 cerchi offset
         searchPlaces(circle);         // Effettua nuova ricerca
       });
       circle.addListener('center_changed', () => { 
         updateCircleInfo(circle);
+        updateOffsetCircles();        // Aggiorna i 4 cerchi offset
         searchPlaces(circle);
       });
       
@@ -254,6 +318,9 @@ function initMap() {
         circle.setMap(null);           // Cancella il cerchio
         circle = null; 
       }
+      // Cancella i 4 cerchi offset
+      offsetCircles.forEach(c => c.setMap(null));
+      offsetCircles = [];
       clearMarkers();                  // Rimuovi tutti i marker
       placesListEl.innerHTML = '';     // Svuota la lista HTML
       
@@ -345,6 +412,128 @@ function initMap() {
       URL.revokeObjectURL(url); // Libera la memoria
     });
 
+    // ===== FUNZIONE HELPER: CALCOLA 4 SOTTO-CERCHI =====
+    /**
+     * calculate4SubCircles(centerLat, centerLng, radiusMeters)
+     * Calcola posizione e dimensione dei 4 cerchi offset basato su algoritmo ottimizzato
+     * 
+     * PARAMETRI:
+     * - subRadiusRatio: 0.75 = i sotto-cerchi hanno il 75% del raggio principale
+     * - offsetRatio: 0.45 = gli offset sono il 45% del raggio principale
+     */
+    function calculate4SubCircles(centerLat, centerLng, radiusMeters) {
+      const radiusKm = radiusMeters / 1000;
+      
+      // PARAMETRI OTTIMIZZATI
+      const subRadiusRatio = 0.75;  // Raggio sotto-cerchi = 75% del raggio principale
+      const offsetRatio = 0.45;     // Offset = 45% del raggio principale
+      
+      // Calcola raggio e offset in km
+      const subRadiusKm = radiusKm * subRadiusRatio;
+      const offsetKm = radiusKm * offsetRatio;
+      
+      // Funzione helper per convertire km in gradi lat/lng
+      function offsetCoordinates(lat, lng, offsetX_km, offsetY_km) {
+        // 1 grado di latitudine ≈ 111 km (costante)
+        const latOffset = offsetY_km / 111;
+        
+        // 1 grado di longitudine varia con la latitudine
+        // Formula: 111 * cos(lat) km per grado
+        const lngOffset = offsetX_km / (111 * Math.cos(lat * Math.PI / 180));
+        
+        return {
+          lat: lat + latOffset,
+          lng: lng + lngOffset
+        };
+      }
+      
+      // Calcola i 4 centri (NW, NE, SW, SE)
+      const circles = [
+        { // Ricerca 1: Nord-Ovest
+          direction: 'NW',
+          center: offsetCoordinates(centerLat, centerLng, -offsetKm, offsetKm),
+          radius: subRadiusKm * 1000 // Torna a metri
+        },
+        { // Ricerca 2: Nord-Est
+          direction: 'NE',
+          center: offsetCoordinates(centerLat, centerLng, offsetKm, offsetKm),
+          radius: subRadiusKm * 1000
+        },
+        { // Ricerca 3: Sud-Ovest
+          direction: 'SW',
+          center: offsetCoordinates(centerLat, centerLng, -offsetKm, -offsetKm),
+          radius: subRadiusKm * 1000
+        },
+        { // Ricerca 4: Sud-Est
+          direction: 'SE',
+          center: offsetCoordinates(centerLat, centerLng, offsetKm, -offsetKm),
+          radius: subRadiusKm * 1000
+        }
+      ];
+      
+      return circles;
+    }
+
+    // ===== FUNZIONE: CREA I 4 CERCHI OFFSET =====
+    /**
+     * createOffsetCircles() - Crea 4 cerchi offset sulla mappa per le ricerche restaurant 1-4
+     * Usa l'algoritmo calculate4SubCircles per posizionare e dimensionare i cerchi
+     */
+    function createOffsetCircles() {
+      if (!circle) return;
+      
+      // Cancella i cerchi offset precedenti
+      offsetCircles.forEach(c => c.setMap(null));
+      offsetCircles = [];
+      
+      const center = circle.getCenter();
+      const radius = circle.getRadius();
+      
+      // Calcola i 4 sotto-cerchi
+      const subCircles = calculate4SubCircles(center.lat(), center.lng(), radius);
+      
+      // Crea i 4 cerchi sulla mappa
+      subCircles.forEach((subCircle, index) => {
+        const search = DEFAULT_SEARCHES[index]; // index 0-3 corrisponde a search 1-4
+        
+        const offsetCircle = new google.maps.Circle({
+          center: subCircle.center,
+          radius: subCircle.radius,
+          map: map,
+          fillColor: search.color,
+          fillOpacity: 0.1,
+          strokeColor: search.color,
+          strokeWeight: 2,
+          strokeOpacity: 0.6,
+          clickable: false,
+          editable: false,
+          draggable: false
+        });
+        
+        offsetCircles.push(offsetCircle);
+      });
+    }
+
+    // ===== FUNZIONE: AGGIORNA I 4 CERCHI OFFSET =====
+    /**
+     * updateOffsetCircles() - Aggiorna i 4 cerchi offset quando il cerchio principale cambia
+     */
+    function updateOffsetCircles() {
+      if (!circle || offsetCircles.length === 0) return;
+      
+      const center = circle.getCenter();
+      const radius = circle.getRadius();
+      
+      // Calcola i nuovi 4 sotto-cerchi
+      const subCircles = calculate4SubCircles(center.lat(), center.lng(), radius);
+      
+      // Aggiorna i 4 cerchi offset
+      for (let i = 0; i < 4 && i < offsetCircles.length; i++) {
+        offsetCircles[i].setCenter(subCircles[i].center);
+        offsetCircles[i].setRadius(subCircles[i].radius);
+      }
+    }
+
     // ===== FUNZIONE PRINCIPALE: RICERCA RISTORANTI =====
     /**
      * searchPlaces(circle) - Ricerca ristoranti nel raggio specificato dal cerchio
@@ -352,7 +541,7 @@ function initMap() {
      * Processo:
      * 1. Cancella i marker e la lista precedenti
      * 2. Estrae il centro e il raggio del cerchio
-     * 3. Invia 6 richieste parallele al server (/api/places/searchNearby) con configurazioni diverse
+     * 3. Invia 9 richieste parallele al server (/api/places/searchNearby) con configurazioni diverse
      * 4. Raggruppa i risultati per ricerca e li mostra organizzati nella sidebar
      * 5. Aggiorna lo stato nella sidebar
      */
@@ -369,17 +558,34 @@ function initMap() {
       console.log('Searching restaurants for:', centerLatLng, 'radius:', radius);
 
       try {
-        // ===== 6 RICHIESTE PARALLELE AL SERVER =====
+        // ===== 9 RICHIESTE PARALLELE AL SERVER =====
         /**
-         * Ottieni le configurazioni per le 6 ricerche e invia tutte le richieste in parallelo
-         * Promise.all aspetta che tutte le 6 ricerche siano completate
+         * Ottieni le configurazioni per le 9 ricerche e invia tutte le richieste in parallelo
+         * Promise.all aspetta che tutte le 9 ricerche siano completate
+         * 
+         * Le ricerche 1-4 hanno offset e raggio specifici (varianti spaziali di restaurant)
+         * Le ricerche 5-9 usano il raggio del cerchio senza offset
          */
         const searchConfigs = getSearchConfigs();
         const searchPromises = searchConfigs.map(config => {
+          // Calcola il centro con offset (se presente)
+          let searchLat = center.lat();
+          let searchLng = center.lng();
+          let searchRadius = radius;
+          
+          if (config.offsetLat !== undefined && config.offsetLng !== undefined) {
+            searchLat += config.offsetLat;
+            searchLng += config.offsetLng;
+          }
+          
+          if (config.radius !== undefined) {
+            searchRadius = config.radius;
+          }
+          
           const payload = { 
-            lat: center.lat(), 
-            lng: center.lng(), 
-            radius,
+            lat: searchLat, 
+            lng: searchLng, 
+            radius: searchRadius,
             includedTypes: config.includedTypes,
             excludedTypes: config.excludedTypes,
             rankPreference: "POPULARITY"
@@ -397,7 +603,7 @@ function initMap() {
           .catch(err => ({ searchNumber: config.searchNumber, error: err.message }));
         });
 
-        // Esegui tutte le 6 ricerche in parallelo
+        // Esegui tutte le 9 ricerche in parallelo
         const allResults = await Promise.all(searchPromises);
         
         // ===== MOSTRA LE RISPOSTE JSON COMPLETE =====
@@ -508,7 +714,7 @@ function initMap() {
         });
 
         // Mostra raggruppato senza duplicati
-        for (let i = 1; i <= 6; i++) {
+        for (let i = 1; i <= 9; i++) {
           const places = groupedBySearch[i] || [];
           
           const header = document.createElement('li');
@@ -619,7 +825,13 @@ function initMap() {
       if (place.searchSource) {
         const searchNum = place.searchSource.match(/\d+/);
         if (searchNum) {
-          markerColor = getSearchColor(parseInt(searchNum[0]));
+          const numSearch = parseInt(searchNum[0]);
+          // I marker delle ricerche 1-4 sono sempre rossi
+          if (numSearch >= 1 && numSearch <= 4) {
+            markerColor = '#d32f2f'; // Rosso per ricerche 1-4
+          } else {
+            markerColor = getSearchColor(numSearch);
+          }
         }
       }
       
