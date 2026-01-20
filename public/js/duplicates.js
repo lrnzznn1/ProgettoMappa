@@ -118,6 +118,13 @@ function filterDuplicates(places) {
     }
   });
   
+  const removedCount = places.length - uniquePlaces.length;
+  
+  // Aggiorna statistiche duplicati per report
+  if (typeof updateSearchStats === 'function' && removedCount > 0) {
+    updateSearchStats({ duplicatesRemoved: removedCount });
+  }
+  
   return uniquePlaces;
 }
 

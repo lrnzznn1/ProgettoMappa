@@ -103,7 +103,7 @@ const DEFAULT_SEARCHES = [
 const APP_CONFIG = {
   DEFAULT_CENTER: { lat: 41.9028, lng: 12.4964 }, // Centro di Roma
   DEFAULT_ZOOM: 13,
-  MAX_RADIUS: 5000, // 5 km in metri - vincolo massimo
+  MAX_RADIUS: 25000, // 25 km in metri - vincolo default (modificabile via UI)
   RADIUS_CHECK_INTERVAL: 50, // ms per controllo raggio
   MAP_LOAD_TIMEOUT: 4000, // 4s timeout per caricamento Google Maps
   

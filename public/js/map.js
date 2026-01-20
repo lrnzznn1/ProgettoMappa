@@ -15,6 +15,68 @@ function initMap() {
       center: APP_CONFIG.DEFAULT_CENTER,
       zoom: APP_CONFIG.DEFAULT_ZOOM,
       mapTypeControl: false,
+      streetViewControl: false, 
+      fullscreenControl: false,
+      zoomControl: true,
+      zoomControlOptions: {
+        position: google.maps.ControlPosition.LEFT_BOTTOM
+      },
+      mapTypeId: google.maps.MapTypeId.ROADMAP,
+      styles: [
+        {
+          "featureType": "poi",
+          "elementType": "labels",
+          "stylers": [{ "visibility": "off" }] // Nasconde etichette POI per mappa più pulita
+        },
+        {
+          "featureType": "transit",
+          "elementType": "labels",
+          "stylers": [{ "visibility": "off" }] // Nasconde etichette trasporti
+        },
+        {
+          "featureType": "landscape.man_made",
+          "elementType": "labels",
+          "stylers": [{ "visibility": "off" }]
+        },
+        {
+          "featureType": "water",
+          "elementType": "geometry",
+          "stylers": [{ "color": "#a8c8f5" }, { "lightness": 30 }]
+        },
+        {
+          "featureType": "landscape",
+          "elementType": "geometry",
+          "stylers": [{ "color": "#e8f0e8" }, { "lightness": 5 }]
+        },
+        {
+          "featureType": "landscape.natural",
+          "elementType": "geometry",
+          "stylers": [{ "color": "#d4e5d4" }]
+        },
+        {
+          "featureType": "road.highway",
+          "elementType": "geometry.fill",
+          "stylers": [{ "color": "#ffffff" }, { "lightness": 17 }]
+        },
+        {
+          "featureType": "road.highway",
+          "elementType": "geometry.stroke",
+          "stylers": [{ "color": "#ffffff" }, { "lightness": 29 }, { "weight": 0.2 }]
+        },
+        {
+          "featureType": "road.arterial",
+          "elementType": "geometry",
+          "stylers": [{ "color": "#ffffff" }, { "lightness": 18 }]
+        },
+        {
+          "featureType": "road.local",
+          "elementType": "geometry",
+          "stylers": [{ "color": "#ffffff" }, { "lightness": 16 }]
+        }
+      ],
+      gestureHandling: 'greedy', // Permette zoom senza Ctrl
+      disableDoubleClickZoom: false,
+      scrollwheel: true
     });
 
     // ===== VARIABILI DI STATO =====
@@ -26,6 +88,12 @@ function initMap() {
     let offsetCirclesData = [];
     let isAdjustingRadius = false;
 
+    // ===== FUNZIONE RAGGIO MASSIMO =====
+    function getCurrentMaxRadius() {
+      const selector = document.getElementById('max-radius-selector');
+      return selector ? parseInt(selector.value) : APP_CONFIG.MAX_RADIUS;
+    }
+
     // ===== INIZIALIZZAZIONE UI =====
     initializeSearchInputs();
     
@@ -35,31 +103,39 @@ function initMap() {
     const overlayEl = document.getElementById('map-overlay');
     if (overlayEl) overlayEl.style.display = 'none';
 
+    // Aggiungi controlli personalizzati e animazioni
+    if (typeof addCustomMapControls === 'function') addCustomMapControls(map);
+    if (typeof animateMapControls === 'function') animateMapControls();
+
     // ===== DRAWING MANAGER =====
     const drawingManager = new google.maps.drawing.DrawingManager({
       drawingMode: google.maps.drawing.OverlayType.CIRCLE,
       drawingControl: true,
       drawingControlOptions: {
-        position: google.maps.ControlPosition.TOP_CENTER,
+        position: google.maps.ControlPosition.TOP_LEFT,
         drawingModes: [google.maps.drawing.OverlayType.CIRCLE]
       },
       circleOptions: {
-        fillColor: '#ff0000',
+        fillColor: '#667eea',
         fillOpacity: 0.15,
-        strokeWeight: 1,
+        strokeWeight: 2,
+        strokeColor: '#667eea',
+        strokeOpacity: 0.8,
         clickable: false,
         editable: true,
         draggable: true,
+        zIndex: 1
       }
     });
     drawingManager.setMap(map);
 
     // ===== CONTROLLO RAGGIO MASSIMO =====
     const radiusCheckInterval = setInterval(() => {
-      if (circle && circle.getRadius() > APP_CONFIG.MAX_RADIUS) {
+      const maxRadius = getCurrentMaxRadius();
+      if (circle && circle.getRadius() > maxRadius) {
         if (!isAdjustingRadius) {
           isAdjustingRadius = true;
-          circle.setRadius(APP_CONFIG.MAX_RADIUS);
+          circle.setRadius(maxRadius);
           isAdjustingRadius = false;
         }
       }
@@ -128,9 +204,10 @@ function initMap() {
       if (circle) circle.setMap(null);
       circle = newCircle;
       
-      if (circle.getRadius() > APP_CONFIG.MAX_RADIUS) {
+      const maxRadius = getCurrentMaxRadius();
+      if (circle.getRadius() > maxRadius) {
         isAdjustingRadius = true;
-        circle.setRadius(APP_CONFIG.MAX_RADIUS);
+        circle.setRadius(maxRadius);
         isAdjustingRadius = false;
       }
       
@@ -139,9 +216,10 @@ function initMap() {
       circle.addListener('radius_changed', () => { 
         if (isAdjustingRadius) return;
         
-        if (circle.getRadius() > APP_CONFIG.MAX_RADIUS) {
+        const maxRadius = getCurrentMaxRadius();
+        if (circle.getRadius() > maxRadius) {
           isAdjustingRadius = true;
-          circle.setRadius(APP_CONFIG.MAX_RADIUS);
+          circle.setRadius(maxRadius);
           isAdjustingRadius = false;
           return;
         }
@@ -176,6 +254,9 @@ function initMap() {
         const placesListEl = document.getElementById('places-list');
         if (placesListEl) placesListEl.innerHTML = '';
         
+        // Reset delle statistiche
+        if (typeof resetSearchStats === 'function') resetSearchStats();
+        
         const coordsEl = document.getElementById('circle-coords');
         const radiusEl = document.getElementById('circle-radius');
         if (coordsEl) coordsEl.innerText = '—';
@@ -204,49 +285,70 @@ function initMap() {
       });
     }
 
-    // Bottone esporta JSON
-    const exportBtn = document.getElementById('export-json');
+    // Bottone genera report PDF
+    const exportBtn = document.getElementById('export-report');
     if (exportBtn) {
-      exportBtn.disabled = true;
+      exportBtn.disabled = false;
       exportBtn.addEventListener('click', () => {
+        console.log('🔍 Debug export - lastPlaces:', lastPlaces);
+        console.log('🔍 Debug export - lastPlaces length:', lastPlaces ? lastPlaces.length : 'undefined');
+        
         if (!lastPlaces || lastPlaces.length === 0) {
-          alert('Nessun cibo da esportare. Disegna prima un cerchio e attendi i risultati.');
+          alert('Nessun risultato da includere nel report. Disegna prima un cerchio e attendi i risultati.');
           return;
         }
+        generatePdfReport(lastPlaces, circle);
+      });
+    }
+
+    // ===== FILTRI COLORE =====
+    // Aggiungi event listener per i bottoni filtro colore
+    const colorFilterBtns = document.querySelectorAll('.color-filter-btn');
+    colorFilterBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const selectedColor = btn.dataset.color;
         
-        const data = lastPlaces.map(p => {
-          const latVal = (p.geometry && p.geometry.location && typeof p.geometry.location.lat === 'function') 
-            ? p.geometry.location.lat() 
-            : (p.geometry && p.geometry.location && p.geometry.location.lat !== undefined) 
-              ? p.geometry.location.lat 
-              : (p.geometry && p.geometry.location && p.geometry.location.latitude) 
-                ? p.geometry.location.latitude 
-                : null;
-          const lngVal = (p.geometry && p.geometry.location && typeof p.geometry.location.lng === 'function') 
-            ? p.geometry.location.lng() 
-            : (p.geometry && p.geometry.location && p.geometry.location.lng !== undefined) 
-              ? p.geometry.location.lng 
-              : (p.geometry && p.geometry.location && p.geometry.location.longitude) 
-                ? p.geometry.location.longitude 
-                : null;
-          
-          return {
-            name: p.name,
-            vicinity: p.vicinity || null,
-            place_id: p.place_id || null,
-            lat: latVal,
-            lng: lngVal,
-            rating: p.rating || null
-          };
-        });
+        // Rimuovi la classe active da tutti i bottoni
+        colorFilterBtns.forEach(b => b.classList.remove('active'));
         
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'ristoranti.json';
-        a.click();
-        URL.revokeObjectURL(url);
+        // Aggiungi la classe active al bottone cliccato
+        btn.classList.add('active');
+        
+        // Applica il filtro
+        applyColorFilter(selectedColor, markers);
+      });
+    });
+    
+    // Imposta il filtro "Tutti" come attivo inizialmente
+    const allBtn = document.querySelector('.color-filter-btn[data-color="all"]');
+    if (allBtn) allBtn.classList.add('active');
+
+    // ===== CONTROLLO RAGGIO MASSIMO =====
+    const maxRadiusSelector = document.getElementById('max-radius-selector');
+    if (maxRadiusSelector) {
+      maxRadiusSelector.addEventListener('change', () => {
+        const newMaxRadius = getCurrentMaxRadius();
+        if (circle && circle.getRadius() > newMaxRadius) {
+          isAdjustingRadius = true;
+          circle.setRadius(newMaxRadius);
+          isAdjustingRadius = false;
+          updateCircleInfo(circle);
+          updateOffsetCircles();
+          executeSearch();
+        }
+      });
+    }
+
+    // ===== BOTTONE TOGGLE DEBUG API =====
+    const toggleApiBtn = document.getElementById('toggle-api-response');
+    if (toggleApiBtn) {
+      toggleApiBtn.addEventListener('click', () => {
+        const apiResponseEl = document.getElementById('api-response-container');
+        if (apiResponseEl) {
+          const isVisible = apiResponseEl.style.display === 'block';
+          apiResponseEl.style.display = isVisible ? 'none' : 'block';
+          toggleApiBtn.textContent = isVisible ? '🔍 Debug API' : '❌ Nascondi API';
+        }
       });
     }
 
@@ -257,7 +359,7 @@ function initMap() {
       const results = await searchPlaces(circle, map, markers, infoWindow, offsetCirclesData);
       lastPlaces = results;
       
-      if (exportBtn) exportBtn.disabled = results.length === 0;
+      // Mantieni il bottone sempre attivo (il controllo è nell'event listener)
     }
 
   } catch (err) {

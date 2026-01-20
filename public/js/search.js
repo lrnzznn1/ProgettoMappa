@@ -29,6 +29,9 @@ async function searchPlaces(circle, map, markers, infoWindow, offsetCirclesData)
   const centerLatLng = {lat: center.lat(), lng: center.lng()};
   console.log('Searching restaurants for:', centerLatLng, 'radius:', radius);
 
+  // Reset delle statistiche per nuova ricerca
+  if (typeof resetSearchStats === 'function') resetSearchStats();
+
   try {
     const searchConfigs = getSearchConfigs();
 
@@ -83,11 +86,12 @@ async function searchPlaces(circle, map, markers, infoWindow, offsetCirclesData)
 
     // Esegui tutte le 9 ricerche in parallelo
     const allResults = await Promise.all(searchPromises);
+    const searchResults = []; // Array per tracciare i risultati di ogni ricerca
     
-    // Mostra le risposte JSON complete
+    // Mostra le risposte JSON complete (ma nascoste di default)
     if (apiResponseEl && apiResponseTextEl) {
       apiResponseTextEl.innerText = JSON.stringify(allResults, null, 2);
-      apiResponseEl.style.display = 'block';
+      // Non mostrare automaticamente, lascia che l'utente decida
     }
 
     // Processa i risultati
@@ -161,6 +165,9 @@ async function searchPlaces(circle, map, markers, infoWindow, offsetCirclesData)
         count: places.length, 
         places 
       };
+      
+      // Aggiungi ai searchResults per il report
+      searchResults[result.searchNumber - 1] = places;
     });
 
     // Filtro automatico dei duplicati
@@ -197,6 +204,7 @@ async function searchPlaces(circle, map, markers, infoWindow, offsetCirclesData)
         
         const header = document.createElement('li');
         header.className = 'search-section-header';
+        header.dataset.sectionColor = getSearchColor(i); // Aggiungi attributo per filtraggio
         header.style.backgroundColor = '#f0f0f0';
         header.style.padding = '8px';
         header.style.fontWeight = 'bold';
@@ -226,8 +234,19 @@ async function searchPlaces(circle, map, markers, infoWindow, offsetCirclesData)
     // Aggiorna il contatore nella sidebar
     setMapStatus(`Trovati ${lastPlaces.length} risultati unici`);
     
-    // Abilita il bottone di esportazione ora che abbiamo risultati
-    if (exportBtn) exportBtn.disabled = false;
+    // Aggiorna statistiche per il report PDF
+    if (typeof updateSearchStats === 'function') {
+      updateSearchStats({
+        totalRequests: searchConfigs.length,
+        totalResults: allResults.length,
+        searchDetails: searchResults.map((places, idx) => ({
+          count: places.length,
+          types: searchConfigs[idx]?.includedTypes?.join(', ') || 'N/A'
+        }))
+      });
+    }
+    
+    // Il bottone rimane sempre abilitato (controllo nell'event listener)
     
     // Controlla e mostra i duplicati nella pagina (analisi)
     checkDuplicates(lastPlaces);

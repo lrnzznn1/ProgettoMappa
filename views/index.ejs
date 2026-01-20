@@ -15,72 +15,88 @@
   <body>
     <div id="app">
       <aside id="sidebar">
-        <h2>Ricerca Cibo</h2>
+        <h1>Beyond the travel</h1>
         <div id="controls">
           <button id="clear-circle" aria-label="Rimuovi cerchio">Rimuovi cerchio</button>
-          <button id="export-json" aria-label="Esporta lista">Esporta JSON</button>
+          <button id="export-report" aria-label="Genera report PDF">📄 Genera Report PDF</button>
           <button id="refresh-search" aria-label="Ricerca di nuovo">Ricerca di nuovo</button>
+          <button id="toggle-api-response" aria-label="Mostra/Nascondi risposte API">🔍 Debug API</button>
           
-          <!-- Configurazione 9 ricerche diverse -->
-          <div style="margin-top: 10px; padding: 10px; background: #f9f9f9; border-radius: 5px; font-size: 0.85rem;">
-            <label style="display: block; margin-bottom: 8px; font-weight: bold;">⚙️ 9 Ricerche parallele:</label>
-            
-            <div style="margin-bottom: 8px; padding: 5px; background: #fff; border-radius: 3px;">
-              <strong style="display: block; color: #d32f2f;">Ricerca 1:</strong>
-              <input type="text" class="search-config" data-search="1" data-type="included" placeholder="inclusi" style="width: 100%; padding: 3px; margin-top: 3px; font-size: 0.8rem;">
-              <input type="text" class="search-config" data-search="1" data-type="excluded" placeholder="esclusi" style="width: 100%; padding: 3px; margin-top: 2px; font-size: 0.8rem;">
-            </div>
-            
-            <div style="margin-bottom: 8px; padding: 5px; background: #fff; border-radius: 3px;">
-              <strong style="display: block; color: #d32f2f;">Ricerca 2:</strong>
-              <input type="text" class="search-config" data-search="2" data-type="included" placeholder="inclusi" style="width: 100%; padding: 3px; margin-top: 3px; font-size: 0.8rem;">
-              <input type="text" class="search-config" data-search="2" data-type="excluded" placeholder="esclusi" style="width: 100%; padding: 3px; margin-top: 2px; font-size: 0.8rem;">
-            </div>
-            
-            <div style="margin-bottom: 8px; padding: 5px; background: #fff; border-radius: 3px;">
-              <strong style="display: block; color: #d32f2f;">Ricerca 3:</strong>
-              <input type="text" class="search-config" data-search="3" data-type="included" placeholder="inclusi" style="width: 100%; padding: 3px; margin-top: 3px; font-size: 0.8rem;">
-              <input type="text" class="search-config" data-search="3" data-type="excluded" placeholder="esclusi" style="width: 100%; padding: 3px; margin-top: 2px; font-size: 0.8rem;">
-            </div>
-            
-            <div style="margin-bottom: 8px; padding: 5px; background: #fff; border-radius: 3px;">
-              <strong style="display: block; color: #d32f2f;">Ricerca 4:</strong>
-              <input type="text" class="search-config" data-search="4" data-type="included" placeholder="inclusi" style="width: 100%; padding: 3px; margin-top: 3px; font-size: 0.8rem;">
-              <input type="text" class="search-config" data-search="4" data-type="excluded" placeholder="esclusi" style="width: 100%; padding: 3px; margin-top: 2px; font-size: 0.8rem;">
-            </div>
-            
-            <div style="margin-bottom: 8px; padding: 5px; background: #fff; border-radius: 3px;">
-              <strong style="display: block; color: #1976d2;">Ricerca 5:</strong>
-              <input type="text" class="search-config" data-search="5" data-type="included" placeholder="inclusi" style="width: 100%; padding: 3px; margin-top: 3px; font-size: 0.8rem;">
-              <input type="text" class="search-config" data-search="5" data-type="excluded" placeholder="esclusi" style="width: 100%; padding: 3px; margin-top: 2px; font-size: 0.8rem;">
-            </div>
-            
-            <div style="margin-bottom: 8px; padding: 5px; background: #fff; border-radius: 3px;">
-              <strong style="display: block; color: #388e3c;">Ricerca 6:</strong>
-              <input type="text" class="search-config" data-search="6" data-type="included" placeholder="inclusi" style="width: 100%; padding: 3px; margin-top: 3px; font-size: 0.8rem;">
-              <input type="text" class="search-config" data-search="6" data-type="excluded" placeholder="esclusi" style="width: 100%; padding: 3px; margin-top: 2px; font-size: 0.8rem;">
-            </div>
-            
-            <div style="margin-bottom: 8px; padding: 5px; background: #fff; border-radius: 3px;">
-              <strong style="display: block; color: #7b1fa2;">Ricerca 7:</strong>
-              <input type="text" class="search-config" data-search="7" data-type="included" placeholder="inclusi" style="width: 100%; padding: 3px; margin-top: 3px; font-size: 0.8rem;">
-              <input type="text" class="search-config" data-search="7" data-type="excluded" placeholder="esclusi" style="width: 100%; padding: 3px; margin-top: 2px; font-size: 0.8rem;">
-            </div>
-            
-            <div style="margin-bottom: 8px; padding: 5px; background: #fff; border-radius: 3px;">
-              <strong style="display: block; color: #f57c00;">Ricerca 8:</strong>
-              <input type="text" class="search-config" data-search="8" data-type="included" placeholder="inclusi" style="width: 100%; padding: 3px; margin-top: 3px; font-size: 0.8rem;">
-              <input type="text" class="search-config" data-search="8" data-type="excluded" placeholder="esclusi" style="width: 100%; padding: 3px; margin-top: 2px; font-size: 0.8rem;">
-            </div>
-            
-            <div style="margin-bottom: 8px; padding: 5px; background: #fff; border-radius: 3px;">
-              <strong style="display: block; color: #00897b;">Ricerca 9:</strong>
-              <input type="text" class="search-config" data-search="9" data-type="included" placeholder="inclusi" style="width: 100%; padding: 3px; margin-top: 3px; font-size: 0.8rem;">
-              <input type="text" class="search-config" data-search="9" data-type="excluded" placeholder="esclusi" style="width: 100%; padding: 3px; margin-top: 2px; font-size: 0.8rem;">
+          <!-- Filtri per colore -->
+          <div class="control-section">
+            <label>🎨 Filtri per colore</label>
+            <div id="color-filters">
+              <button class="color-filter-btn" data-color="all">Tutti</button>
+              <button class="color-filter-btn" data-color="#d32f2f" style="background: #d32f2f; color: white;">Ristoranti</button>
+              <button class="color-filter-btn" data-color="#1976d2" style="background: #1976d2; color: white;">Cafe</button>
+              <button class="color-filter-btn" data-color="#388e3c" style="background: #388e3c; color: white;">Storia</button>
+              <button class="color-filter-btn" data-color="#7b1fa2" style="background: #7b1fa2; color: white;">Musei</button>
+              <button class="color-filter-btn" data-color="#f57c00" style="background: #f57c00; color: white;">Natura</button>
+              <button class="color-filter-btn" data-color="#00897b" style="background: #00897b; color: white;">Divert.</button>
             </div>
           </div>
           
-          <small>Disegna un cerchio sulla mappa per cercare cibo</small>
+          <!-- Controllo Raggio Massimo -->
+          <div class="control-section">
+            <label>📏 Raggio massimo cerchio</label>
+            <select id="max-radius-selector">
+              <option value="5000">5 km</option>
+              <option value="10000">10 km</option>
+              <option value="25000" selected>25 km</option>
+              <option value="50000">50 km (massimo Google)</option>
+            </select>
+          </div>
+          
+          <!-- Configurazione 9 ricerche diverse -->
+          <div class="control-section">
+            <label>⚙️ Configurazione 9 ricerche parallele</label>
+            
+            <div class="search-config-group">
+              <strong style="color: #d32f2f;">Ricerca 1-4 (Sottocerchi)</strong>
+              <div class="search-item">
+                <input type="text" class="search-config" data-search="1" data-type="included" placeholder="Tipi inclusi">
+                <input type="text" class="search-config" data-search="1" data-type="excluded" placeholder="Tipi esclusi">
+              </div>
+              <div class="search-item">
+                <input type="text" class="search-config" data-search="2" data-type="included" placeholder="Tipi inclusi">
+                <input type="text" class="search-config" data-search="2" data-type="excluded" placeholder="Tipi esclusi">
+              </div>
+              <div class="search-item">
+                <input type="text" class="search-config" data-search="3" data-type="included" placeholder="Tipi inclusi">
+                <input type="text" class="search-config" data-search="3" data-type="excluded" placeholder="Tipi esclusi">
+              </div>
+              <div class="search-item">
+                <input type="text" class="search-config" data-search="4" data-type="included" placeholder="Tipi inclusi">
+                <input type="text" class="search-config" data-search="4" data-type="excluded" placeholder="Tipi esclusi">
+              </div>
+            </div>
+            
+            <div class="search-config-group">
+              <strong style="color: #1976d2;">Ricerca 5-9 (Cerchio principale)</strong>
+              <div class="search-item">
+                <input type="text" class="search-config" data-search="5" data-type="included" placeholder="Tipi inclusi">
+                <input type="text" class="search-config" data-search="5" data-type="excluded" placeholder="Tipi esclusi">
+              </div>
+              <div class="search-item">
+                <input type="text" class="search-config" data-search="6" data-type="included" placeholder="Tipi inclusi">
+                <input type="text" class="search-config" data-search="6" data-type="excluded" placeholder="Tipi esclusi">
+              </div>
+              <div class="search-item">
+                <input type="text" class="search-config" data-search="7" data-type="included" placeholder="Tipi inclusi">
+                <input type="text" class="search-config" data-search="7" data-type="excluded" placeholder="Tipi esclusi">
+              </div>
+              <div class="search-item">
+                <input type="text" class="search-config" data-search="8" data-type="included" placeholder="Tipi inclusi">
+                <input type="text" class="search-config" data-search="8" data-type="excluded" placeholder="Tipi esclusi">
+              </div>
+              <div class="search-item">
+                <input type="text" class="search-config" data-search="9" data-type="included" placeholder="Tipi inclusi">
+                <input type="text" class="search-config" data-search="9" data-type="excluded" placeholder="Tipi esclusi">
+              </div>
+            </div>
+          </div>
+          
+          <small>Disegna un cerchio sulla mappa per cercare luoghi interessanti</small>
           <div id="map-status" class="map-status">Stato mappa: <strong id="map-status-text">In attesa...</strong></div>
           <div id="circle-info">
             <div>Centro: <span id="circle-coords">—</span></div>
@@ -111,12 +127,16 @@
           <p>Imposta la chiave API Google Maps in `.env` (GOOGLE_MAPS_API_KEY) e riavvia il server.</p>
         </div>
       </div>
+    <!-- Load jsPDF library for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <!-- Load modular JavaScript files -->
     <script src="/js/config.js"></script>
     <script src="/js/geometry.js"></script>
     <script src="/js/ui.js"></script>
     <script src="/js/markers.js"></script>
     <script src="/js/duplicates.js"></script>
+    <script src="/js/pdf-report.js"></script>
+    <script src="/js/map-enhancements.js"></script>
     <script src="/js/search.js"></script>
     <script src="/js/map.js"></script>
     <script
