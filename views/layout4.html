@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beyond Your Travel - Joyful Edition</title>
+    <style>
+        /* --- 1. THE JOYFUL PALETTE --- */
+        :root {
+            --primary: #00cec9;       /* Turchese Vacanza */
+            --primary-dark: #00b894;
+            --accent: #ff7675;        /* Corallo Tramonto */
+            --bg-light: #f4f7f6;      /* Grigio "Nuvola" */
+            --text-dark: #2d3436;     /* Grigio Antracite (non nero puro) */
+            --text-light: #636e72;
+            --white: #ffffff;
+            --shadow-soft: 0 10px 25px rgba(0,0,0,0.05); /* Ombra sofficissima */
+            --shadow-hover: 0 15px 35px rgba(0,0,0,0.1);
+        }
+
+        /* --- RESET & TYPOGRAPHY --- */
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', 'Segoe UI', sans-serif; }
+        body { 
+            height: 100vh; 
+            overflow: hidden; 
+            display: flex; 
+            flex-direction: column; 
+            background: var(--bg-light); 
+            color: var(--text-dark);
+        }
+
+        /* --- ZONA 1: UPPER DECK (60%) --- */
+        .upper-deck {
+            flex: 6; 
+            display: flex;
+            background: var(--white);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.03); /* Separazione sottile */
+            z-index: 10;
+        }
+
+        /* 1A. Ricerca (Sinistra) */
+        .search-panel {
+            width: 340px;
+            background: var(--white);
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #eee;
+            padding: 20px;
+        }
+
+        .search-header h2 { font-size: 18px; margin-bottom: 15px; color: var(--text-dark); display: flex; align-items: center; gap: 8px;}
+        
+        .search-box-wrapper {
+            position: relative;
+            margin-bottom: 15px;
+        }
+        .search-input { 
+            width: 100%; padding: 12px 15px 12px 40px; 
+            background: var(--bg-light); border: none; 
+            border-radius: 12px; font-size: 14px; outline: none; transition: 0.2s;
+        }
+        .search-input:focus { background: white; box-shadow: 0 0 0 2px var(--primary); }
+        .search-icon { position: absolute; left: 12px; top: 12px; color: #aaa; }
+
+        .filters { display: flex; gap: 8px; margin-bottom: 20px; }
+        .filter-pill { 
+            padding: 6px 14px; background: white; border: 1px solid #eee; 
+            border-radius: 20px; font-size: 12px; color: var(--text-light); 
+            cursor: pointer; transition: 0.2s; font-weight: 500;
+        }
+        .filter-pill:hover { border-color: var(--primary); color: var(--primary); }
+        .filter-pill.active { background: var(--primary); color: white; border-color: var(--primary); box-shadow: 0 4px 10px rgba(0, 206, 201, 0.3); }
+
+        /* Lista Risultati */
+        .results-list { flex: 1; overflow-y: auto; padding-right: 5px; }
+        
+        /* Card Risultato "Sunny" */
+        .res-card {
+            background: var(--white); 
+            padding: 12px; margin-bottom: 12px; 
+            border-radius: 12px; 
+            border: 1px solid #f0f0f0;
+            display: flex; gap: 12px; cursor: grab; 
+            transition: all 0.2s ease;
+        }
+        .res-card:hover { 
+            transform: translateY(-3px); 
+            box-shadow: var(--shadow-soft); 
+            border-color: var(--primary);
+        }
+        .res-img { width: 50px; height: 50px; background: #eee; border-radius: 10px; flex-shrink: 0; object-fit: cover; }
+        .res-info h4 { font-size: 14px; margin-bottom: 2px; }
+        .res-info small { font-size: 12px; color: var(--text-light); }
+        .rating-badge { 
+            font-size: 11px; font-weight: bold; color: #fdcb6e; 
+            background: #fffbf0; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-top: 4px;
+        }
+
+        /* 1B. La Mappa (Destra) */
+        .map-stage {
+            flex: 1;
+            position: relative;
+            background: #eef2f3; /* Colore acqua chiarissimo */
+            /* Pattern decorativo leggero */
+            background-image: radial-gradient(#cbd5e0 1px, transparent 1px);
+            background-size: 30px 30px;
+        }
+        
+        /* Overlay controlli mappa (Flottanti e Bianchi) */
+        .map-controls { 
+            position: absolute; top: 20px; right: 20px; 
+            display: flex; flex-direction: column; gap: 10px; 
+        }
+        .btn-map { 
+            background: var(--white); color: var(--text-dark); 
+            width: 40px; height: 40px; border: none;
+            cursor: pointer; display: flex; align-items: center; justify-content: center; 
+            border-radius: 50%; /* Tondi = Amichevoli */
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            font-size: 18px; transition: 0.2s;
+        }
+        .btn-map:hover { transform: scale(1.1); color: var(--primary); }
+
+        /* Pin Mappa "Joyful" */
+        .pin {
+            position: absolute; width: 36px; height: 36px;
+            background: var(--accent); border: 2px solid white;
+            border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
+            display: flex; align-items: center; justify-content: center; 
+            color: white; font-weight: bold;
+            box-shadow: 0 5px 15px rgba(255, 118, 117, 0.4);
+            animation: bounce 2s infinite;
+        }
+        .pin-content { transform: rotate(45deg); font-size: 14px; }
+        
+        @keyframes bounce { 0%, 100% {transform: rotate(-45deg) translateY(0);} 50% {transform: rotate(-45deg) translateY(-5px);} }
+
+        /* --- ZONA 2: LOWER DECK (TIMELINE) (40%) --- */
+        .timeline-deck {
+            flex: 4; 
+            background: var(--bg-light); 
+            display: flex; 
+            flex-direction: column;
+            border-top: 1px solid white; /* Effetto luce */
+        }
+
+        .timeline-header {
+            padding: 15px 30px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .trip-title h1 { font-size: 20px; color: var(--text-dark); }
+        .trip-meta { font-size: 13px; color: var(--text-light); background: white; padding: 5px 12px; border-radius: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+
+        .timeline-track {
+            flex: 1;
+            display: flex;
+            overflow-x: auto;
+            padding: 0 30px 30px 30px;
+            gap: 25px;
+            align-items: flex-start;
+        }
+        /* Custom Scrollbar leggera */
+        .timeline-track::-webkit-scrollbar { height: 8px; }
+        .timeline-track::-webkit-scrollbar-thumb { background: #cbd5e0; border-radius: 4px; }
+        .timeline-track::-webkit-scrollbar-track { background: transparent; }
+
+        /* Il "Giorno" (Foglio Bianco) */
+        .day-block {
+            min-width: 320px;
+            background: var(--white);
+            border-radius: 16px;
+            box-shadow: var(--shadow-soft);
+            display: flex; flex-direction: column;
+            height: 95%; /* Quasi tutta l'altezza */
+            border: 1px solid #fff;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        /* Striscia colorata in alto */
+        .day-header {
+            padding: 15px;
+            background: linear-gradient(to right, #ffffff, #f9f9f9);
+            border-bottom: 1px solid #f0f0f0;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .day-num { font-weight: 700; color: var(--text-dark); font-size: 16px; }
+        .day-date { font-size: 12px; color: var(--primary); font-weight: 600; background: rgba(0, 206, 201, 0.1); padding: 4px 10px; border-radius: 10px; }
+
+        .day-slots {
+            flex: 1; padding: 15px;
+            overflow-y: auto;
+            background-image: linear-gradient(#f4f7f6 1px, transparent 1px);
+            background-size: 100% 40px; /* Righe da quaderno sottili */
+        }
+
+        /* Elemento Pianificato */
+        .plan-item {
+            background: white;
+            border: 1px solid #eee;
+            padding: 10px;
+            margin-bottom: 25px; /* Spazio per connettore */
+            border-radius: 12px;
+            position: relative;
+            display: flex; align-items: center; gap: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+            z-index: 2;
+        }
+        .plan-time { 
+            font-size: 12px; font-weight: bold; color: var(--primary); 
+            background: rgba(0, 206, 201, 0.1); padding: 4px 8px; border-radius: 6px;
+        }
+        
+        /* Connettore Dotted */
+        .connector-line {
+            position: absolute; bottom: -26px; left: 24px;
+            width: 2px; height: 26px;
+            border-left: 2px dashed #dcdde1;
+            z-index: 1;
+        }
+        .walk-badge {
+            position: absolute; bottom: -20px; left: 35px;
+            font-size: 10px; color: #aaa; background: rgba(255,255,255,0.8);
+        }
+
+        /* Empty State */
+        .empty-day {
+            text-align: center; color: #b2bec3; font-size: 13px; margin-top: 40px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="upper-deck">
+        
+        <div class="search-panel">
+            <div class="search-header">
+                <h2>🌍 Esplora</h2>
+                <div class="search-box-wrapper">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" class="search-input" placeholder="Cerca 'Sushi', 'Museo'...">
+                </div><div style="background: linear-gradient(135deg, #6c5ce7, #a29bfe); border-radius: 12px; padding: 15px; margin-bottom: 20px; color: white; position: relative; overflow: hidden; cursor: pointer; transition: transform 0.2s;">
+    <div style="position: absolute; top: -10px; right: -10px; font-size: 60px; opacity: 0.2;">✨</div>
+    
+    <div style="position: relative; z-index: 2;">
+        <h4 style="font-size: 14px; margin-bottom: 5px;">Pigro oggi? 😴</h4>
+        <p style="font-size: 11px; opacity: 0.9; margin-bottom: 10px;">Dimmi solo cosa ti piace, creo io l'itinerario base.</p>
+        
+        <button style="width: 100%; background: white; color: #6c5ce7; border: none; padding: 8px; border-radius: 6px; font-size: 12px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;">
+            <span>✨ Genera Itinerario Auto</span>
+        </button>
+    </div>
+</div>
+                <div class="filters">
+                    <div class="filter-pill active">Tutti</div>
+                    <div class="filter-pill">🍕 Cibo</div>
+                    <div class="filter-pill">🎨 Arte</div>
+                    <div class="filter-pill">🌳 Relax</div>
+                </div>
+            </div>
+
+            <div class="results-list">
+                <div class="res-card" draggable="true">
+                    <img src="https://via.placeholder.com/50/ff7675/ffffff?text=C" class="res-img" alt="food">
+                    <div class="res-info">
+                        <h4>La Carbonara D'Oro</h4>
+                        <div class="rating-badge">★ 4.8</div> <small>• €€</small>
+                    </div>
+                </div>
+                <div class="res-card" draggable="true">
+                    <img src="https://via.placeholder.com/50/74b9ff/ffffff?text=M" class="res-img" alt="museum">
+                    <div class="res-info">
+                        <h4>Museo del Futuro</h4>
+                        <div class="rating-badge">★ 4.9</div> <small>• Arte</small>
+                    </div>
+                </div>
+                <div class="res-card" draggable="true">
+                    <img src="https://via.placeholder.com/50/55efc4/ffffff?text=P" class="res-img" alt="park">
+                    <div class="res-info">
+                        <h4>Giardini Reali</h4>
+                        <div class="rating-badge">★ 4.5</div> <small>• Relax</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="map-stage">
+            <div class="map-controls">
+                <button class="btn-map" title="Zoom In">+</button>
+                <button class="btn-map" title="Zoom Out">-</button>
+                <button class="btn-map" title="Fullscreen">⤢</button>
+            </div>
+
+            <div class="pin" style="top: 30%; left: 45%;">
+                <span class="pin-content">1</span>
+            </div>
+             <div class="pin" style="top: 50%; left: 60%; background:#0984e3; animation-delay: 0.5s;">
+                <span class="pin-content">2</span>
+            </div>
+
+            <div style="position: absolute; bottom: 30px; left: 30px; background: white; padding: 10px 15px; border-radius: 30px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); font-size: 13px; color: var(--text-dark); display:flex; align-items:center; gap:10px;">
+                <span>💡</span> 
+                <span>Trascina i posti dalla lista direttamente qui sotto! 👇</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="timeline-deck">
+        <div class="timeline-header">
+            <div class="trip-title">
+                <h1>🇯🇵 Viaggio in Giappone</h1>
+            </div>
+            <div class="trip-meta">
+                📅 12 - 24 Ottobre • 💰 Budget: €2.400
+            </div>
+        </div>
+
+        <div class="timeline-track">
+            
+            <div class="day-block">
+                <div class="day-header">
+                    <span class="day-num">Giorno 1</span>
+                    <span class="day-date">12 Ott</span>
+                </div>
+                <div class="day-slots">
+                    <div class="plan-item">
+                        <span class="plan-time">10:00</span>
+                        <span>🛬 Arrivo a Tokyo</span>
+                        <div class="connector-line"></div>
+                        <div class="walk-badge">🚆 45min</div>
+                    </div>
+                    <div style="border: 2px dashed #00cec9; background: rgba(0, 206, 201, 0.05); border-radius: 12px; padding: 10px; margin-bottom: 25px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; gap: 10px;">
+                        <span style="font-size: 18px;">✨</span>
+                        <div style="text-align: left;">
+                            <div style="font-size: 12px; font-weight: bold; color: #00cec9;">Hai un buco di 4 ore!</div>
+                            <div style="font-size: 11px; color: #636e72;">Clicca per riempire con attività vicine</div>
+                        </div>
+                    </div>
+                    <div class="plan-item">
+                        <span class="plan-time">12:00</span>
+                        <span>🍜 Pranzo a Ramen St.</span>
+                         <div class="connector-line"></div>
+                        <div class="walk-badge">🚶 10min</div>
+                    </div>
+                    <div class="plan-item">
+                        <span class="plan-time">16:30</span>
+                        <span>🏰 Castello Lontano</span> <div class="connector-line" style="border-left-color: #ff7675;"></div> 
+    
+                        <div class="walk-badge" style="background: #ff7675; color: white; box-shadow: 0 2px 5px rgba(255, 118, 117, 0.4);">
+                            ⚠️ 1h 20m (Troppo lontano!)
+                        </div>
+    
+                        <div style="position: absolute; bottom: -35px; left: 50%; transform: translateX(-50%); font-size: 10px; background: white; border: 1px solid #ff7675; color: #ff7675; padding: 2px 6px; border-radius: 10px; cursor: pointer; z-index: 5;">
+                            ✨ Ottimizza Ordine
+                        </div>
+                    </div>
+                    <div class="plan-item">
+                        <span class="plan-time">14:00</span>
+                        <span>🏨 Check-in Hotel</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="day-block">
+                <div class="day-header">
+                    <span class="day-num">Giorno 2</span>
+                    <span class="day-date">13 Ott</span>
+                </div>
+                <div class="day-slots">
+                    <div class="empty-day">
+                        ☀️ Mattinata libera<br><br>
+                        Trascina qui qualcosa di bello!
+                    </div>
+                </div>
+            </div>
+
+            <div class="day-block">
+                <div class="day-header">
+                    <span class="day-num">Giorno 3</span>
+                    <span class="day-date">14 Ott</span>
+                </div>
+                <div class="day-slots">
+                    <div class="empty-day">☁️ Nessun piano</div>
+                </div>
+            </div>
+
+             <div class="day-block" style="min-width: 100px; background: transparent; border: 2px dashed #ccc; box-shadow: none; justify-content: center; align-items: center; cursor: pointer; color: #888;">
+                <span style="font-size: 30px;">+</span>
+            </div>
+
+        </div>
+    </div>
+
+</body>
+</html>

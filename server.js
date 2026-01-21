@@ -36,6 +36,28 @@ app.get('/', (req, res) => {
   res.render('index', { apiKey });
 });
 
+// ===== ROUTE LAYOUT HTML =====
+/**
+ * GET /layout
+ * Serve il file layout.html statico per debug/preview
+ */
+app.get('/layout', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'layout.html'));
+});
+
+app.get('/layout2', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'layout2.html'));
+});
+
+app.get('/layout3', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'layout3.html'));
+});
+
+app.get('/layout4', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'layout4.html'));
+});
+
+
 // ===== RICERCA RISTORANTI (ENDPOINT PRINCIPALE) =====
 /**
  * POST /api/places/searchNearby

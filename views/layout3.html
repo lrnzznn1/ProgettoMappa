@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beyond Your Travel - Dashboard Layout</title>
+    <style>
+        /* --- RESET --- */
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, sans-serif; }
+        body { height: 100vh; overflow: hidden; background-color: #f4f5f7; }
+
+        /* --- LAYOUT GENERALE A 3 COLONNE --- */
+        .app-container {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* --- COLONNA 1: RICERCA (20% - 250px min) --- */
+        .sidebar-search {
+            width: 280px;
+            background: white;
+            border-right: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0; /* Non si rimpicciolisce mai */
+            z-index: 20;
+        }
+
+        /* --- COLONNA 2: PLANNER (40% - Flessibile) --- */
+        .planner-area {
+            flex: 1; /* Prende lo spazio rimanente */
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #ddd;
+            background: #f4f5f7;
+            overflow: hidden; /* Gestisce lo scroll interno */
+            min-width: 350px; /* Non diventa mai troppo piccolo */
+        }
+
+        /* --- COLONNA 3: MAPPA (40% - Fisso o Flessibile) --- */
+        .map-area {
+            width: 40%; /* Larghezza fissa importante per la mappa */
+            background: #e5e3df;
+            position: relative;
+            flex-shrink: 0;
+            transition: width 0.3s ease; /* Per eventuale espansione */
+        }
+        
+        /* Immagine di sfondo simulazione mappa */
+        .map-placeholder {
+            width: 100%; height: 100%;
+            background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/b/bd/Google_Maps_Logo_2020.svg/1024px-Google_Maps_Logo_2020.svg.png');
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: 100px;
+        }
+
+        /* --- STILI INTERNI --- */
+        
+        /* 1. Sidebar Search */
+        .search-header { padding: 20px; border-bottom: 1px solid #eee; }
+        .search-input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 10px; }
+        .filter-tags { display: flex; gap: 5px; flex-wrap: wrap; }
+        .tag { font-size: 12px; background: #eee; padding: 4px 8px; border-radius: 10px; cursor: pointer; }
+        .tag.active { background: #333; color: white; }
+        
+        .results-list { flex: 1; overflow-y: auto; padding: 10px; }
+        .result-card {
+            background: white; border: 1px solid #eee; padding: 10px; margin-bottom: 10px;
+            border-radius: 8px; display: flex; gap: 10px; cursor: grab;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .result-card:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .thumb { width: 50px; height: 50px; background: #ddd; border-radius: 6px; }
+
+        /* 2. Planner Area */
+        .planner-header {
+            padding: 15px 25px;
+            background: white;
+            border-bottom: 1px solid #ddd;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        
+        /* Scroll orizzontale dei giorni */
+        .days-container {
+            flex: 1;
+            display: flex;
+            overflow-x: auto;
+            padding: 25px;
+            gap: 20px;
+            align-items: flex-start;
+        }
+
+        .day-column {
+            min-width: 300px;
+            width: 300px;
+            background: #ebecf0;
+            border-radius: 10px;
+            display: flex; flex-direction: column;
+            max-height: 100%; /* Permette scroll interno alla colonna se piena */
+        }
+        
+        .day-top { padding: 15px; font-weight: bold; background: rgba(0,0,0,0.03); border-radius: 10px 10px 0 0; border-bottom: 1px solid rgba(0,0,0,0.05); }
+        .day-content { padding: 10px; flex: 1; overflow-y: auto; min-height: 100px; }
+
+        /* Card pianificata */
+        .plan-card {
+            background: white; padding: 12px; margin-bottom: 8px; border-radius: 6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: space-between;
+        }
+        .time-badge { font-size: 11px; background: #e1f5fe; color: #0277bd; padding: 2px 6px; border-radius: 4px; margin-right: 8px;}
+
+        /* Connettore */
+        .connector { text-align: center; font-size: 11px; color: #666; margin: 5px 0; padding: 5px 0; border-left: 2px dashed #ccc; margin-left: 20px; padding-left: 10px; }
+
+        /* 3. Mappa Elements */
+        .map-overlay-controls {
+            position: absolute; top: 20px; right: 20px;
+            background: white; padding: 5px; border-radius: 4px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            display: flex; flex-direction: column; gap: 5px;
+        }
+        .btn-icon { width: 30px; height: 30px; border: 1px solid #ddd; background: white; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold;}
+
+        /* Pin Mappa */
+        .pin {
+            position: absolute; width: 30px; height: 30px; background: #FF5733;
+            border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
+            display: flex; align-items: center; justify-content: center; color: white;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+            font-size: 12px;
+        }
+        .pin-content { transform: rotate(45deg); } /* Raddrizza il testo */
+
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        
+        <div class="sidebar-search">
+            <div class="search-header">
+                <h3>Esplora</h3>
+                <input type="text" class="search-input" placeholder="Cerca luoghi...">
+                <div class="filter-tags">
+                    <span class="tag active">Tutti</span>
+                    <span class="tag">🍝 Cibo</span>
+                    <span class="tag">🏛️ Musei</span>
+                </div>
+            </div>
+            <div class="results-list">
+                <div class="result-card" draggable="true">
+                    <div class="thumb" style="background: #ffcccb;"></div>
+                    <div>
+                        <strong>Colosseo</strong><br>
+                        <small>Monumento • €18</small>
+                    </div>
+                </div>
+                <div class="result-card" draggable="true">
+                    <div class="thumb" style="background: #cce5ff;"></div>
+                    <div>
+                        <strong>Fontana di Trevi</strong><br>
+                        <small>Attrazione • Gratis</small>
+                    </div>
+                </div>
+                <div class="result-card" draggable="true">
+                    <div class="thumb" style="background: #d4edda;"></div>
+                    <div>
+                        <strong>Villa Borghese</strong><br>
+                        <small>Parco</small>
+                    </div>
+                </div>
+                <div class="result-card" draggable="true">
+                    <div class="thumb"></div>
+                    <div><strong>Pantheon</strong><br><small>Storia</small></div>
+                </div>
+                <div class="result-card" draggable="true">
+                    <div class="thumb"></div>
+                    <div><strong>Piazza di Spagna</strong><br><small>Piazza</small></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="planner-area">
+            <div class="planner-header">
+                <div>
+                    <h2>Roma Express</h2>
+                    <small>12 - 14 Ottobre • Budget residuo: €450</small>
+                </div>
+                <button style="background:#333; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">Salva</button>
+            </div>
+            
+            <div class="days-container">
+                <div class="day-column">
+                    <div class="day-top" style="border-top: 4px solid #0079bf;">Giorno 1 <span style="float:right; font-weight:normal; color:#666">12 Ott</span></div>
+                    <div class="day-content">
+                        <div class="plan-card">
+                            <div style="display:flex; align-items:center;">
+                                <span class="time-badge">09:00</span>
+                                <span>Colosseo</span>
+                            </div>
+                        </div>
+                        <div class="connector">🚶 15 min (1.2 km)</div>
+                        <div class="plan-card">
+                            <div style="display:flex; align-items:center;">
+                                <span class="time-badge">11:30</span>
+                                <span>Fori Imperiali</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="day-column">
+                    <div class="day-top" style="border-top: 4px solid #eb5a46;">Giorno 2 <span style="float:right; font-weight:normal; color:#666">13 Ott</span></div>
+                    <div class="day-content">
+                         <div style="text-align:center; color:#999; margin-top:20px; font-size:14px;">Trascina qui i luoghi</div>
+                    </div>
+                </div>
+                
+                 <div class="day-column">
+                    <div class="day-top" style="border-top: 4px solid #61bd4f;">Giorno 3 <span style="float:right; font-weight:normal; color:#666">14 Ott</span></div>
+                    <div class="day-content"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="map-area">
+            <div class="map-placeholder">
+                
+                <div class="pin" style="top: 40%; left: 30%; background:#0079bf;">
+                    <span class="pin-content">1</span>
+                </div>
+                <div class="pin" style="top: 55%; left: 45%; background:#0079bf;">
+                    <span class="pin-content">2</span>
+                </div>
+                
+                <svg style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;">
+                    <line x1="30%" y1="40%" x2="45%" y2="55%" style="stroke:#0079bf; stroke-width:3; stroke-dasharray:5,5;" />
+                </svg>
+
+            </div>
+
+            <div class="map-overlay-controls">
+                <button class="btn-icon" title="Espandi Mappa">⤢</button>
+                <button class="btn-icon">+</button>
+                <button class="btn-icon">-</button>
+            </div>
+        </div>
+
+    </div>
+
+</body>
+</html>

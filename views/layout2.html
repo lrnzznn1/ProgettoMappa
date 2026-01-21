@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beyond Your Travel - Map First</title>
+    <style>
+        /* --- RESET --- */
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, sans-serif; }
+        body { height: 100vh; overflow: hidden; display: flex; }
+
+        /* --- LAYOUT GENERALE --- */
+        /* 1. Sidebar Sinistra (Ricerca) - Stretta */
+        .search-sidebar {
+            width: 300px;
+            background: #fff;
+            border-right: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.05);
+        }
+
+        /* 2. Area Principale (Destra) */
+        .main-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column; /* Divisione Verticale: Mappa sopra, Giorni sotto */
+            position: relative;
+        }
+
+        /* --- LA MAPPA (Protagonista assoluta) --- */
+        .map-container {
+            flex: 1.2; /* Prende più spazio (es. 60%) */
+            background: #e5e3df;
+            position: relative;
+            width: 100%;
+            /* Immagine di sfondo per simulare Google Maps */
+            background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/b/bd/Google_Maps_Logo_2020.svg/1024px-Google_Maps_Logo_2020.svg.png');
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: 100px;
+        }
+
+        /* Simulazione Linea Percorso (SVG Overlay) */
+        .route-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; /* Lascia cliccare la mappa sotto */
+        }
+        
+        /* Animazione "Disegno" della linea */
+        .route-path {
+            stroke-dasharray: 1000;
+            stroke-dashoffset: 1000;
+            animation: drawLine 2s ease-out forwards;
+        }
+        @keyframes drawLine {
+            to { stroke-dashoffset: 0; }
+        }
+
+        /* Pin sulla mappa */
+        .map-pin {
+            width: 30px; height: 30px;
+            background: #FF5733;
+            border-radius: 50% 50% 50% 0;
+            transform: rotate(-45deg);
+            position: absolute;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+            display: flex; align-items: center; justify-content: center;
+            color: white; font-weight: bold; font-size: 12px;
+        }
+        /* Pin Giorno 1 (Blu) */
+        .pin-day1 { background: #0079bf; top: 40%; left: 45%; }
+        .pin-day1-2 { background: #0079bf; top: 50%; left: 55%; }
+
+        /* --- IL PLANNER (Sotto) --- */
+        .planner-container {
+            flex: 0.8; /* Prende meno spazio (es. 40%) */
+            background: #f4f5f7;
+            border-top: 4px solid #fff;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+        }
+
+        .planner-header {
+            padding: 10px 20px;
+            background: #fff;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .days-wrapper {
+            flex: 1;
+            display: flex;
+            overflow-x: auto; /* Scroll orizzontale */
+            padding: 20px;
+            gap: 15px;
+        }
+
+        /* Colonna Giorno */
+        .day-column {
+            min-width: 280px;
+            width: 280px;
+            background: #ebecf0;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            border-top: 5px solid #ccc; /* Colore default */
+        }
+        
+        /* Colori per Giorno */
+        .day-1 { border-top-color: #0079bf; } /* Blu */
+        .day-2 { border-top-color: #eb5a46; } /* Rosso */
+
+        .day-header {
+            padding: 10px;
+            font-weight: bold;
+            display: flex; justify-content: space-between;
+        }
+
+        .day-body {
+            flex: 1;
+            padding: 8px;
+            overflow-y: auto;
+        }
+
+        /* --- CARD (Elementi) --- */
+        .card {
+            background: #fff;
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            cursor: grab;
+            display: flex; gap: 10px; align-items: center;
+        }
+        .card img { width: 40px; height: 40px; background: #ddd; border-radius: 4px; }
+        
+        /* Connettore tra le card (Tempo) */
+        .route-connector {
+            text-align: center;
+            font-size: 11px;
+            color: #666;
+            margin: -4px 0 4px 0;
+            position: relative;
+            padding-left: 20px;
+        }
+        .route-connector::before {
+            content: '';
+            position: absolute;
+            left: 25px; /* Allineato col centro delle card */
+            top: -5px; bottom: -5px;
+            width: 2px;
+            border-left: 2px dashed #ccc;
+            z-index: 0;
+        }
+        .route-info {
+            background: #ebecf0;
+            padding: 2px 6px;
+            border-radius: 10px;
+            position: relative;
+            z-index: 1;
+            display: inline-block;
+        }
+
+        /* --- SIDEBAR SEARCH --- */
+        .search-header { padding: 15px; border-bottom: 1px solid #eee; }
+        .search-input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        .results-area { padding: 10px; overflow-y: auto; flex: 1; }
+
+    </style>
+</head>
+<body>
+
+    <div class="search-sidebar">
+        <div class="search-header">
+            <h3>📍 Cerca</h3>
+            <input type="text" class="search-input" placeholder="Es. Ristorante Roma...">
+            <div style="margin-top: 10px; display: flex; gap: 5px;">
+                <button style="flex:1; padding:5px;">Cibo</button>
+                <button style="flex:1; padding:5px;">Musei</button>
+            </div>
+        </div>
+        <div class="results-area">
+            <div class="card" draggable="true">
+                <div style="background:#ffcccb; width:40px; height:40px;"></div>
+                <div>
+                    <strong>Pantheon</strong><br>
+                    <small>Monumento</small>
+                </div>
+            </div>
+            <div class="card" draggable="true">
+                <div style="background:#cce5ff; width:40px; height:40px;"></div>
+                <div>
+                    <strong>Piazza Navona</strong><br>
+                    <small>Piazza</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-area">
+        
+        <div class="map-container">
+            <svg class="route-overlay">
+                <path class="route-path" d="M 400 250 Q 500 350 600 400" 
+                      stroke="#0079bf" stroke-width="4" fill="none" stroke-linecap="round"/>
+            </svg>
+
+            <div class="map-pin pin-day1" style="left: 30%; top: 30%;">1</div>
+            <div class="map-pin pin-day1-2" style="left: 50%; top: 50%;">2</div>
+            
+            <div style="position: absolute; bottom: 20px; right: 20px; background: white; padding: 10px; border-radius: 4px;">
+                Legenda: <span style="color:#0079bf">● Giorno 1</span> <span style="color:#eb5a46">● Giorno 2</span>
+            </div>
+        </div>
+
+        <div class="planner-container">
+            <div class="planner-header">
+                <h3>Il tuo Itinerario</h3>
+                <button>Salva</button>
+            </div>
+            
+            <div class="days-wrapper">
+                
+                <div class="day-column day-1">
+                    <div class="day-header" style="color:#0079bf">
+                        Giorno 1
+                        <small>12 Ott</small>
+                    </div>
+                    <div class="day-body">
+                        <div class="card">
+                            <div style="background:gray; width:30px; height:30px;"></div>
+                            Colosseo
+                        </div>
+                        
+                        <div class="route-connector">
+                            <span class="route-info">🚶 15 min</span>
+                        </div>
+
+                        <div class="card">
+                            <div style="background:gray; width:30px; height:30px;"></div>
+                            Fori Imperiali
+                        </div>
+                    </div>
+                </div>
+
+                <div class="day-column day-2">
+                    <div class="day-header" style="color:#eb5a46">
+                        Giorno 2
+                        <small>13 Ott</small>
+                    </div>
+                    <div class="day-body" style="background-image: linear-gradient(45deg, #eee 25%, transparent 25%); background-size: 20px 20px;">
+                        <small style="color:#888; text-align:center; display:block; margin-top:20px;">Trascina qui...</small>
+                    </div>
+                </div>
+
+                <div class="day-column">
+                    <div class="day-header">Giorno 3</div>
+                    <div class="day-body"></div>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+</body>
+</html>

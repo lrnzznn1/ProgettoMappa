@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beyond Your Travel - Planner Prototype</title>
+    <style>
+        /* --- RESET & BASE --- */
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+        body { height: 100vh; overflow: hidden; background-color: #ffffff; color: #333; }
+
+        /* --- LAYOUT PRINCIPALE (GRID) --- */
+        .app-container {
+            display: grid;
+            grid-template-columns: 380px 1fr; /* Sidebar fissa | Resto flessibile */
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* --- SIDEBAR SINISTRA --- */
+        .sidebar {
+            background-color: #fff;
+            border-right: 1px solid #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            position: relative;
+            z-index: 20; /* Sopra la board */
+        }
+
+        /* --- MAPPA (IL COMPONENTE CHIAVE) --- */
+        .map-wrapper {
+            width: 100%;
+            height: 280px; /* Altezza standard */
+            background-color: #e5e3df; /* Colore base Google Maps */
+            position: relative;
+            transition: all 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);
+            border-bottom: 1px solid #ddd;
+            flex-shrink: 0; /* Non si schiaccia */
+            transform-origin: center center; /* Punto di origine della trasformazione */
+            overflow: hidden;
+        }
+
+        /* Animazione di apertura - fase iniziale */
+        .map-wrapper.expanding {
+            transform: scale(1.05);
+            z-index: 999;
+        }
+
+        /* Stato Espanso (Overlay) */
+        .map-wrapper.expanded {
+            position: fixed;
+            top: 5vh;
+            left: 5vw;
+            width: 90vw;
+            height: 90vh;
+            z-index: 1000;
+            border-radius: 12px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+            border: 4px solid white;
+            transform: scale(1);
+        }
+
+        /* Animazione di chiusura */
+        .map-wrapper.collapsing {
+            transform: scale(0.95);
+            transition: all 0.4s cubic-bezier(0.6, 0, 0.4, 1);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+            border: 4px solid white;
+        }
+
+        /* Backdrop Scuro quando espansa */
+        .overlay-backdrop {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.4);
+            z-index: 999;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        .overlay-backdrop.active { opacity: 1; pointer-events: all; }
+
+        /* Placeholder della mappa (Finta interfaccia Google) */
+        .map-placeholder {
+            width: 100%; height: 100%;
+            background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/b/bd/Google_Maps_Logo_2020.svg/1024px-Google_Maps_Logo_2020.svg.png'); /* Solo per demo */
+            background-size: 100px;
+            background-repeat: no-repeat;
+            background-position: center;
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            color: #666;
+            font-weight: bold;
+        }
+
+        /* Bottone Espandi/Riduci */
+        .map-toggle-btn {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            display: flex; align-items: center; gap: 5px;
+        }
+        .map-toggle-btn:hover { background: #f8f8f8; }
+
+        /* --- FILTRI E LISTA --- */
+        .sidebar-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; /* Importante per lo scroll interno */
+            padding: 15px;
+            background: #f9f9f9;
+        }
+
+        .filters {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .filter-pill {
+            padding: 6px 12px;
+            border-radius: 20px;
+            background: white;
+            border: 1px solid #ddd;
+            font-size: 13px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .filter-pill.active { background: #333; color: white; border-color: #333; }
+        .filter-pill:hover { border-color: #999; }
+
+        .results-list {
+            flex: 1;
+            overflow-y: auto; /* Scroll solo qui */
+            padding-right: 5px;
+        }
+
+        /* --- CARD RISULTATO (DRAGGABLE) --- */
+        .place-card {
+            background: white;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+            cursor: grab;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex;
+            gap: 10px;
+        }
+        .place-card:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .place-card:active { cursor: grabbing; }
+
+        .place-img { width: 60px; height: 60px; background: #ddd; border-radius: 6px; flex-shrink: 0; }
+        .place-info h4 { font-size: 14px; margin-bottom: 4px; }
+        .place-meta { font-size: 12px; color: #666; display: flex; gap: 8px; }
+        .rating { color: #f5a623; font-weight: bold; }
+
+        /* --- MAIN BOARD (DESTRA) --- */
+        .planner-board {
+            background-color: #f0f2f5; /* Sfondo stile Trello/Notion */
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .board-header {
+            padding: 20px 30px;
+            background: white;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .trip-title h1 { font-size: 24px; }
+        .trip-stats { font-size: 14px; color: #666; }
+
+        /* Container Orizzontale dei Giorni */
+        .days-scroller {
+            flex: 1;
+            display: flex;
+            overflow-x: auto; /* Scroll orizzontale */
+            padding: 30px;
+            gap: 20px;
+            align-items: flex-start; /* Colonne allineate in alto */
+        }
+
+        /* COLONNA GIORNO */
+        .day-column {
+            min-width: 300px;
+            width: 300px;
+            background: #ebecf0;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            max-height: 100%;
+        }
+
+        .day-header {
+            padding: 15px;
+            font-weight: bold;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        /* Area di Drop */
+        .day-content {
+            padding: 10px;
+            flex: 1;
+            overflow-y: auto;
+            min-height: 150px;
+            transition: background 0.2s;
+        }
+        /* Classe aggiunta quando trascini sopra */
+        .day-content.drag-over {
+            background: #dce1e8;
+            border: 2px dashed #0079bf;
+        }
+
+        .day-footer {
+            padding: 10px;
+            text-align: center;
+            border-top: 1px solid rgba(0,0,0,0.05);
+        }
+        .ai-btn {
+            background: #e1e4e9;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #555;
+            cursor: pointer;
+            width: 100%;
+        }
+        .ai-btn:hover { background: #d0d4db; }
+
+    </style>
+</head>
+<body>
+
+    <div class="overlay-backdrop" id="backdrop" onclick="toggleMap()"></div>
+
+    <div class="app-container">
+        
+        <div class="sidebar">
+            
+            <div class="map-wrapper" id="mapModule">
+                <div class="map-placeholder">
+                    <span>Mappa Interattiva (Google)</span>
+                    <br>
+                    <small style="font-weight:normal; margin-left: 10px;">Clicca espandi ↘</small>
+                </div>
+                <button class="map-toggle-btn" onclick="toggleMap()">
+                    <span id="btnText">⤢ Espandi</span>
+                </button>
+            </div>
+
+            <div class="sidebar-content">
+                <div class="filters">
+                    <div class="filter-pill active">Tutti (120)</div>
+                    <div class="filter-pill">🍝 Cibo</div>
+                    <div class="filter-pill">🏛️ Cultura</div>
+                    <div class="filter-pill">🌳 Relax</div>
+                </div>
+
+                <h3>Risultati Trovati</h3>
+                <p style="font-size:12px; color:#888; margin-bottom:10px;">Trascina nella timeline a destra</p>
+                
+                <div class="results-list" id="sourceList">
+                    <div class="place-card" draggable="true" ondragstart="drag(event)" id="card1">
+                        <div class="place-img" style="background-color:#ffcccb"></div>
+                        <div class="place-info">
+                            <h4>Ristorante Carbonara</h4>
+                            <div class="place-meta">
+                                <span class="rating">★ 4.8</span> • <span>€€</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="place-card" draggable="true" ondragstart="drag(event)" id="card2">
+                        <div class="place-img" style="background-color:#cce5ff"></div>
+                        <div class="place-info">
+                            <h4>Museo del Futuro</h4>
+                            <div class="place-meta">
+                                <span class="rating">★ 4.9</span> • <span>15€</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="place-card" draggable="true" ondragstart="drag(event)" id="card3">
+                        <div class="place-img" style="background-color:#d4edda"></div>
+                        <div class="place-info">
+                            <h4>Parco Centrale</h4>
+                            <div class="place-meta">
+                                <span class="rating">★ 4.5</span> • <span>Gratis</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="place-card" draggable="true" ondragstart="drag(event)" id="card4">
+                        <div class="place-img"></div>
+                        <div class="place-info"><h4>Bar Storico</h4><div class="place-meta"><span class="rating">★ 4.2</span></div></div>
+                    </div>
+                    <div class="place-card" draggable="true" ondragstart="drag(event)" id="card5">
+                        <div class="place-img"></div>
+                        <div class="place-info"><h4>Torre Panoramica</h4><div class="place-meta"><span class="rating">★ 4.7</span></div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="planner-board">
+            <div class="board-header">
+                <div class="trip-title">
+                    <h1>Viaggio a Roma</h1>
+                    <span style="font-size: 14px; color: #666;">12 - 15 Ottobre • 4 Giorni</span>
+                </div>
+                <div class="trip-actions">
+                    <button style="padding: 10px 20px; background:#333; color:white; border:none; border-radius:6px; cursor:pointer;">Salva Itinerario</button>
+                </div>
+            </div>
+
+            <div class="days-scroller">
+                
+                <div class="day-column">
+                    <div class="day-header">
+                        <span>Giorno 1</span>
+                        <span style="color:#888; font-weight:normal">12 Ott</span>
+                    </div>
+                    <div class="day-content" ondrop="drop(event)" ondragover="allowDrop(event)" ondragleave="leaveDrop(event)">
+                        </div>
+                    <div class="day-footer">
+                        <button class="ai-btn">✨ Ottimizza percorso</button>
+                    </div>
+                </div>
+
+                <div class="day-column">
+                    <div class="day-header">
+                        <span>Giorno 2</span>
+                        <span style="color:#888; font-weight:normal">13 Ott</span>
+                    </div>
+                    <div class="day-content" ondrop="drop(event)" ondragover="allowDrop(event)" ondragleave="leaveDrop(event)">
+                    </div>
+                    <div class="day-footer">
+                        <button class="ai-btn">✨ Ottimizza percorso</button>
+                    </div>
+                </div>
+
+                <div class="day-column">
+                    <div class="day-header">
+                        <span>Giorno 3</span>
+                        <span style="color:#888; font-weight:normal">14 Ott</span>
+                    </div>
+                    <div class="day-content" ondrop="drop(event)" ondragover="allowDrop(event)" ondragleave="leaveDrop(event)">
+                    </div>
+                    <div class="day-footer">
+                        <button class="ai-btn">✨ Ottimizza percorso</button>
+                    </div>
+                </div>
+
+                <div class="day-column" style="background: transparent; border: 2px dashed #ccc; justify-content:center; align-items:center; cursor:pointer; opacity: 0.6;">
+                    <h3>+ Aggiungi Giorno</h3>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. LOGICA MAPPA ESPANDIBILE CON ANIMAZIONE CENTRO ---
+        function toggleMap() {
+            const map = document.getElementById('mapModule');
+            const backdrop = document.getElementById('backdrop');
+            const btnText = document.getElementById('btnText');
+
+            if (!map.classList.contains('expanded')) {
+                // APERTURA: Animazione in 3 fasi
+                
+                // Fase 1: Scale up leggermente
+                map.classList.add('expanding');
+                
+                setTimeout(() => {
+                    // Fase 2: Attiva backdrop
+                    backdrop.classList.add('active');
+                    
+                    // Fase 3: Espandi completamente dopo breve pausa
+                    setTimeout(() => {
+                        map.classList.remove('expanding');
+                        map.classList.add('expanded');
+                        btnText.innerHTML = "⤡ Riduci";
+                    }, 100);
+                }, 150);
+                
+            } else {
+                // CHIUSURA: Animazione più rapida
+                map.classList.add('collapsing');
+                backdrop.classList.remove('active');
+                btnText.innerHTML = "⤢ Espandi";
+                
+                setTimeout(() => {
+                    map.classList.remove('expanded');
+                    map.classList.remove('collapsing');
+                }, 400);
+            }
+        }
+
+        // --- 2. LOGICA DRAG & DROP (HTML5 NATIVO) ---
+        function allowDrop(ev) {
+            ev.preventDefault();
+            // Aggiunge effetto visivo
+            if(ev.target.classList.contains('day-content')) {
+                ev.target.classList.add('drag-over');
+            }
+        }
+
+        function leaveDrop(ev) {
+            // Rimuove effetto visivo
+            if(ev.target.classList.contains('day-content')) {
+                ev.target.classList.remove('drag-over');
+            }
+        }
+
+        function drag(ev) {
+            // Trasferisce l'ID dell'elemento trascinato
+            ev.dataTransfer.setData("text", ev.target.id);
+            ev.target.style.opacity = "0.5"; // Feedback visivo
+        }
+
+        function drop(ev) {
+            ev.preventDefault();
+            var data = ev.dataTransfer.getData("text");
+            var draggedElement = document.getElementById(data);
+            
+            // Ripristina opacità
+            draggedElement.style.opacity = "1";
+
+            // Trova la zona di drop corretta (gestisce se droppi dentro un'altra card per sbaglio)
+            let target = ev.target;
+            while (!target.classList.contains('day-content') && target !== document.body) {
+                target = target.parentElement;
+            }
+
+            if (target.classList.contains('day-content')) {
+                target.classList.remove('drag-over');
+                // Sposta l'elemento DOM (In React useresti lo state)
+                target.appendChild(draggedElement);
+            }
+        }
+
+        // Fix: Se il drag finisce male, ripristina opacità
+        document.addEventListener("dragend", function(event) {
+            event.target.style.opacity = "1";
+        });
+    </script>
+</body>
+</html>
