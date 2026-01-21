@@ -57,6 +57,15 @@ app.get('/layout4', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'layout4.html'));
 });
 
+// ===== LAYOUT FINALE EJS =====
+/**
+ * GET /layoutfinale
+ * Renderizza il nuovo layout con integrazione Google Maps
+ */
+app.get('/layoutfinale', (req, res) => {
+  res.render('layoutfinale', { apiKey });
+});
+
 
 // ===== RICERCA RISTORANTI (ENDPOINT PRINCIPALE) =====
 /**
