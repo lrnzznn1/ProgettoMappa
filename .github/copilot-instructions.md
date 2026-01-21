@@ -214,12 +214,20 @@ const data = lastPlaces.map(p => ({
 
 | File | Responsabilità |
 |------|---|
-| [server.js](server.js) | Backend Express, routing, integrazione Google Places API v1 |
-| [public/js/map.js](public/js/map.js) | Logica frontend: mappa, disegno, ricerca, UI, gestione marker |
-| [views/index.ejs](views/index.ejs) | Struttura HTML, layout flexbox, input tipi inclusi/esclusi |
-| [public/css/styles.css](public/css/styles.css) | Styling moderno con gradients e backdrop-filter |
-| [package.json](package.json) | Dipendenze e script npm |
-| [.env](.env) | Configurazione variabili ambiente (GOOGLE_MAPS_API_KEY) |
+| File | Responsabilità |
+|------|---|
+| `server.js` | Backend Express, routing, integrazione Google Places API v1 |
+| `views/layoutfinale.ejs` | **Nuovo Target**: Layout principale con design "Joyful" |
+| `public/css/layoutfinale.css` | Styling nuovo layout (Palette colori, Flexbox) |
+| `public/js/map.js` | **Main**: Orchestrator, initMap, coordinamento moduli |
+| `public/js/search.js` | Logica ricerca Places API, filtri e gestione dati |
+| `public/js/ui.js` | Gestione DOM, helper UI, stato interfaccia |
+| `public/js/markers.js` | Gestione Marker, InfoWindow e interazioni mappa |
+| `public/js/config.js` | Costanti e configurazioni globali |
+| `views/index.ejs` | *Legacy*: Vecchio layout (reference) |
+| `public/css/styles.css` | *Legacy*: Vecchio styling |
+| `package.json` | Dipendenze e script npm |
+| `.env` | Configurazione variabili ambiente (GOOGLE_MAPS_API_KEY) |
 
 ## ⚠️ Gotcha e Limitazioni
 
