@@ -147,6 +147,10 @@ async function searchPlaces(circle, map, markers, infoWindow, offsetCirclesData)
           vicinity: place.formattedAddress || '',
           place_id: place.id || null,
           geometry: { location: { lat: latLng.lat, lng: latLng.lng } },
+          rating: place.rating,
+          userRatingCount: place.userRatingCount,
+          priceLevel: place.priceLevel,
+          websiteUri: place.websiteUri,
           types: place.types || [],
           searchSource: `Ricerca ${result.searchNumber}`  // Traccia quale ricerca ha trovato questo luogo
         };

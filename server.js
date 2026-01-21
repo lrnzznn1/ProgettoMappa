@@ -129,7 +129,7 @@ app.post('/api/places/searchNearby', async (req, res) => {
         headers: {
           'Content-Type': 'application/json',
           'X-Goog-Api-Key': apiKey,
-          'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.types,places.location,places.id,places.rating,places.userRatingCount,places.priceLevel,places.businessStatus,places.currentOpeningHours,places.websiteUri,places.internationalPhoneNumber,places.delivery,places.dineIn,places.takeout,places.reservable,places.servesVegetarianFood'
+          'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.types,places.location,places.id,places.rating,places.userRatingCount,places.priceLevel,places.businessStatus,places.currentOpeningHours,places.websiteUri,places.internationalPhoneNumber,places.delivery,places.dineIn,places.takeout,places.reservable,places.servesVegetarianFood,places.photos'
         },
         body: JSON.stringify(requestBody)
       });
@@ -148,7 +148,7 @@ app.post('/api/places/searchNearby', async (req, res) => {
       headers: {
         'Content-Type': 'application/json',
         'X-Goog-Api-Key': apiKey,
-        'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.types,places.location,places.id,places.rating,places.userRatingCount,places.priceLevel,places.businessStatus,places.currentOpeningHours,places.websiteUri,places.internationalPhoneNumber,places.delivery,places.dineIn,places.takeout,places.reservable,places.servesVegetarianFood',
+        'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.types,places.location,places.id,places.rating,places.userRatingCount,places.priceLevel,places.businessStatus,places.currentOpeningHours,places.websiteUri,places.internationalPhoneNumber,places.delivery,places.dineIn,places.takeout,places.reservable,places.servesVegetarianFood,places.photos',
         'Content-Length': Buffer.byteLength(bodyStr)
       }
     };

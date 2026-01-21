@@ -153,46 +153,26 @@ function initMap() {
       const radius = circle.getRadius();
       const subCircles = calculate4SubCircles(center.lat(), center.lng(), radius);
       
+      // Calcoliamo i dati per la ricerca ma NON disegniamo i cerchi sulla mappa
       subCircles.forEach((subCircle, index) => {
-        const search = DEFAULT_SEARCHES[index];
-        
-        const offsetCircle = new google.maps.Circle({
-          center: subCircle.center,
-          radius: subCircle.radius,
-          map: map,
-          fillColor: search.color,
-          fillOpacity: 0.1,
-          strokeColor: search.color,
-          strokeWeight: 2,
-          strokeOpacity: 0.6,
-          clickable: false,
-          editable: false,
-          draggable: false
-        });
-        
-        offsetCircles.push(offsetCircle);
+        // Mantiene solo i dati logici, non gli oggetti grafici
         offsetCirclesData.push({ center: subCircle.center, radius: subCircle.radius });
       });
 
-      console.log('\n=== 🟢 SOTTOCERCHI DISEGNATI (GOOGLE MAPS) ===');
-      offsetCircles.forEach((c, idx) => {
-        const ctr = c.getCenter();
-        const rad = c.getRadius();
-        console.log(`  Sottocerchio ${idx+1}: centro LAT=${ctr.lat().toFixed(6)}, LNG=${ctr.lng().toFixed(6)}, RAGGIO=${Math.round(rad)}m`);
-      });
-      console.log('='.repeat(50));
+      console.log('\n=== 🟢 DATI SOTTOCERCHI CALCOLATI (VISUALIZZAZIONE NASCOSTA) ===');
     }
 
     function updateOffsetCircles() {
-      if (!circle || offsetCircles.length === 0) return;
+      // Se non c'è il cerchio principale, usciamo
+      if (!circle) return;
       
       const center = circle.getCenter();
       const radius = circle.getRadius();
       const subCircles = calculate4SubCircles(center.lat(), center.lng(), radius);
       
-      for (let i = 0; i < 4 && i < offsetCircles.length; i++) {
-        offsetCircles[i].setCenter(subCircles[i].center);
-        offsetCircles[i].setRadius(subCircles[i].radius);
+      // Aggiorniamo solo i dati logici
+      offsetCirclesData = [];
+      for (let i = 0; i < 4; i++) {
         offsetCirclesData[i] = { center: subCircles[i].center, radius: subCircles[i].radius };
       }
     }

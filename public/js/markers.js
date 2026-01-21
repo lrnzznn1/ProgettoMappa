@@ -71,6 +71,14 @@ function addPlaceMarker(place, map, markers, infoWindow) {
     const rating = place.rating ? `⭐ ${place.rating}` : '';
     const types = place.types && place.types.length > 0 ? place.types.slice(0, 3).join(', ') : 'Informazioni non disponibili';
     
+    // Costruisci URL immagine se disponibile
+    let imageHtml = '';
+    if (place.photos && place.photos.length > 0 && window.GOOGLE_MAPS_API_KEY) {
+      const photoName = place.photos[0].name;
+      const imgUrl = `https://places.googleapis.com/v1/${photoName}/media?key=${window.GOOGLE_MAPS_API_KEY}&maxWidthPx=300&maxHeightPx=200`;
+      imageHtml = `<img src="${imgUrl}" style="width: 100%; height: 150px; object-fit: cover; border-radius: 8px; margin-bottom: 12px;">`;
+    }
+
     let content = `
       <div style="
         font-family: 'Inter', sans-serif;
@@ -81,6 +89,7 @@ function addPlaceMarker(place, map, markers, infoWindow) {
         box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
         border: 1px solid rgba(255, 255, 255, 0.3);
       ">
+        ${imageHtml}
         <div style="
           display: flex;
           align-items: center;
@@ -290,17 +299,72 @@ function updatePlacesList() {
 }
 
 /**
- * addPlaceToList(place, markers, map) - Aggiunge un elemento <li> con il ristorante
- * 
- * Funzionalità:
- * 1. Crea un <li> con nome e indirizzo
- * 2. Al click: centra la mappa su quel punto, zoom in, apre la InfoWindow del marker
+ * addPlaceToList(place, markers, map) - Aggiunge un elemento alla lista (compatibile con Old & New Layout)
  */
 function addPlaceToList(place, markers, map) {
   const placesListEl = document.getElementById('places-list');
   if (!placesListEl) return;
   
-  // Determina il colore del marker per questa voce
+  // --- NUOVO LAYOUT (JOYFUL) ---
+  if (document.querySelector('.upper-deck')) {
+      const el = document.createElement('li');
+      el.className = 'res-card'; 
+      el.draggable = true;
+      el.dataset.placeId = place.place_id;
+      
+      // Colori placeholder 
+      let placeholderColor = 'a29bfe';  // Default viola
+      let placeholderText = 'G';
+      const types = place.types || [];
+      
+      if (types.includes('restaurant') || types.includes('food')) { 
+          placeholderColor = 'ff7675'; placeholderText = 'C'; 
+      } else if (types.includes('museum') || types.includes('art_gallery')) { 
+          placeholderColor = '74b9ff'; placeholderText = 'M'; 
+      } else if (types.includes('park') || types.includes('nature')) { 
+          placeholderColor = '55efc4'; placeholderText = 'P'; 
+      }
+      
+      let imgUrl = `https://via.placeholder.com/50/${placeholderColor}/ffffff?text=${placeholderText}`;
+      
+      // Usa foto reale se disponibile
+      if (place.photos && place.photos.length > 0 && window.GOOGLE_MAPS_API_KEY) {
+          const photoName = place.photos[0].name;
+          imgUrl = `https://places.googleapis.com/v1/${photoName}/media?key=${window.GOOGLE_MAPS_API_KEY}&maxWidthPx=200&maxHeightPx=200`;
+      }
+      
+      const ratingHtml = place.rating ? `<div class="rating-badge">★ ${place.rating}</div>` : '';
+      const vicinity = place.vicinity || '';
+      const startAddress = vicinity.substring(0, 30) + (vicinity.length > 30 ? '...' : '');
+
+      el.innerHTML = `
+        <img src="${imgUrl}" class="res-img" alt="${escapeHtml(place.name)}">
+        <div class="res-info">
+            <h4>${escapeHtml(place.name)}</h4>
+            ${ratingHtml} 
+            <small>• ${escapeHtml(startAddress)}</small>
+        </div>
+      `;
+
+      el.addEventListener('click', () => {
+        map.panTo(place.geometry.location);
+        map.setZoom(16);
+        const marker = markers.find(m => 
+          Math.abs(m.getPosition().lat() - place.geometry.location.lat) < 0.0001 &&
+          Math.abs(m.getPosition().lng() - place.geometry.location.lng) < 0.0001
+        );
+        if (marker) google.maps.event.trigger(marker, 'click');
+        
+        // Evidenzia selezione
+        document.querySelectorAll('.res-card').forEach(c => c.style.borderColor = '#f0f0f0');
+        el.style.borderColor = '#00cec9';
+      });
+
+      placesListEl.appendChild(el);
+      return; 
+  }
+
+  // --- VECCHIO LAYOUT (LEGACY) ---
   let markerColor = '#1f76d2'; // blu di default
   if (place.searchSource) {
     const searchNum = place.searchSource.match(/\d+/);
