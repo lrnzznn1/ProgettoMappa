@@ -71,11 +71,31 @@ function addPlaceMarker(place, map, markers, infoWindow) {
     const rating = place.rating ? `⭐ ${place.rating}` : '';
     const types = place.types && place.types.length > 0 ? place.types.slice(0, 3).join(', ') : 'Informazioni non disponibili';
     
-    // Costruisci URL immagine se disponibile
+    // Costruisci URL immagine (Foto > Street View > Nulla)
     let imageHtml = '';
-    if (place.photos && place.photos.length > 0 && window.GOOGLE_MAPS_API_KEY) {
-      const photoName = place.photos[0].name;
-      const imgUrl = `https://places.googleapis.com/v1/${photoName}/media?key=${window.GOOGLE_MAPS_API_KEY}&maxWidthPx=300&maxHeightPx=200`;
+    const hasPhotos = place.photos && place.photos.length > 0;
+    const hasKey = !!window.GOOGLE_MAPS_API_KEY;
+    let imgUrl = '';
+
+    if (hasPhotos && hasKey) {
+      const photoData = place.photos[0];
+      
+      // Nuovo formato API Places v1: usa il campo "name"
+      if (photoData.name) {
+          imgUrl = `https://places.googleapis.com/v1/${photoData.name}/media?key=${window.GOOGLE_MAPS_API_KEY}&maxWidthPx=400&maxHeightPx=400`;
+      }
+      // Fallback per vecchio formato con photo_reference
+      else if (photoData.photo_reference) {
+          imgUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photoData.photo_reference}&key=${window.GOOGLE_MAPS_API_KEY}`;
+      }
+    } else if (hasKey && place.geometry && place.geometry.location) {
+        // --- FALLBACK STRATEGIA: STREET VIEW ---
+        const lat = typeof place.geometry.location.lat === 'function' ? place.geometry.location.lat() : place.geometry.location.lat;
+        const lng = typeof place.geometry.location.lng === 'function' ? place.geometry.location.lng() : place.geometry.location.lng;
+        imgUrl = `https://maps.googleapis.com/maps/api/streetview?size=600x400&location=${lat},${lng}&key=${window.GOOGLE_MAPS_API_KEY}`;
+    }
+      
+    if (imgUrl) {
       imageHtml = `<img src="${imgUrl}" style="width: 100%; height: 150px; object-fit: cover; border-radius: 8px; margin-bottom: 12px;">`;
     }
 
@@ -325,12 +345,44 @@ function addPlaceToList(place, markers, map) {
           placeholderColor = '55efc4'; placeholderText = 'P'; 
       }
       
-      let imgUrl = `https://via.placeholder.com/50/${placeholderColor}/ffffff?text=${placeholderText}`;
+      // Crea immagine placeholder SVG sempre funzionante
+      const fallbackImg = `data:image/svg+xml;base64,${btoa(`
+        <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 50 50">
+          <rect width="50" height="50" fill="#${placeholderColor}" rx="8"/>
+          <text x="25" y="32" text-anchor="middle" fill="white" font-family="Arial" font-size="18" font-weight="bold">${placeholderText}</text>
+        </svg>
+      `)}`;
       
-      // Usa foto reale se disponibile
-      if (place.photos && place.photos.length > 0 && window.GOOGLE_MAPS_API_KEY) {
-          const photoName = place.photos[0].name;
-          imgUrl = `https://places.googleapis.com/v1/${photoName}/media?key=${window.GOOGLE_MAPS_API_KEY}&maxWidthPx=200&maxHeightPx=200`;
+      let imgUrl = fallbackImg; // Usa sempre placeholder per ora d
+      
+      // Usa foto reale se disponibile, altrimenti fallback su Street View
+      const hasPhotos = place.photos && place.photos.length > 0;
+      const hasKey = !!window.GOOGLE_MAPS_API_KEY;
+
+      if (hasPhotos && hasKey) {
+          const photoData = place.photos[0];
+          
+          // Nuovo formato API Places v1: usa il campo "name"
+          if (photoData.name) {
+              imgUrl = `https://places.googleapis.com/v1/${photoData.name}/media?key=${window.GOOGLE_MAPS_API_KEY}&maxWidthPx=400&maxHeightPx=400`;
+          }
+          // Fallback per vecchio formato con photo_reference
+          else if (photoData.photo_reference) {
+              imgUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photoData.photo_reference}&key=${window.GOOGLE_MAPS_API_KEY}`;
+          }
+      } else if (hasKey && place.geometry && place.geometry.location) {
+          // --- FALLBACK STRATEGIA: STREET VIEW ---
+          // Se non ci sono foto, usiamo Street View Static API
+          const lat = typeof place.geometry.location.lat === 'function' ? place.geometry.location.lat() : place.geometry.location.lat;
+          const lng = typeof place.geometry.location.lng === 'function' ? place.geometry.location.lng() : place.geometry.location.lng;
+          
+          imgUrl = `https://maps.googleapis.com/maps/api/streetview?size=600x400&location=${lat},${lng}&key=${window.GOOGLE_MAPS_API_KEY}`;
+          console.log(`ℹ️ [${place.name}] Foto mancante, uso Street View fallback`);
+      } else {
+          // Logga il motivo per cui non c'è la foto (e usa SVG default)
+          if (!hasPhotos && !hasKey) {
+             console.error(`❌ [${place.name}] API Key mancante`);
+          }
       }
       
       const ratingHtml = place.rating ? `<div class="rating-badge">★ ${place.rating}</div>` : '';

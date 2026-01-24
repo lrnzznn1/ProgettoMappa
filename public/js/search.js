@@ -116,6 +116,14 @@ async function searchPlaces(circle, map, markers, infoWindow, offsetCirclesData)
       let results = data.places || [];
       const places = [];
 
+      // 🔍 DEBUG: Vediamo cosa arriva dall'API
+      console.log(`📥 Risposta API Ricerca ${result.searchNumber}:`, data);
+      console.log(`📥 Numero di places:`, results.length);
+      if (results.length > 0) {
+        console.log(`📥 Primo place completo:`, results[0]);
+        console.log(`📥 Primo place.photos:`, results[0].photos);
+      }
+
       // Filtro per le ricerche 1,2,3,4: solo risultati dentro il cerchio principale
       if ([1,2,3,4].includes(result.searchNumber)) {
         const mainCenter = circle.getCenter();
@@ -152,6 +160,7 @@ async function searchPlaces(circle, map, markers, infoWindow, offsetCirclesData)
           priceLevel: place.priceLevel,
           websiteUri: place.websiteUri,
           types: place.types || [],
+          photos: place.photos, // Importante: preserva le foto!
           searchSource: `Ricerca ${result.searchNumber}`  // Traccia quale ricerca ha trovato questo luogo
         };
         
