@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Beyond Your Travel - Joyful Studio</title>
     <link rel="stylesheet" href="/css/layoutfinale.css">
+    <link rel="stylesheet" href="/css/loader.css">
 </head>
 <body>
 
@@ -41,7 +42,13 @@
         <div class="map-stage" style="position: relative;">
             <div id="map" style="width: 100%; height: 100%;"></div>
             
-            <div id="map-overlay" role="alert" aria-live="polite" style="display:none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 2000;">
+            <!-- Loader Overlay -->
+            <div id="map-loader" class="map-loader-overlay">
+                <div class="loader-spinner"></div>
+                <div class="loader-text">Cerco posti incredibili...</div>
+            </div>
+
+            <div id="map-overlay" role="alert" aria-live="polite" style="display:none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; z-index: 2000;">
                 <div class="overlay-content" style="background: white; padding: 20px; border-radius: 8px; text-align: center;">
                   <h3>Google Maps non è stato caricato</h3>
                   <p>Imposta la chiave API Google Maps in `.env` (GOOGLE_MAPS_API_KEY) e riavvia il server.</p>
@@ -121,7 +128,8 @@
     </script>
     <!-- Load modular JavaScript files -->
     <script src="/js/config.js"></script>
-    <script src="/js/geometry.js"></script>
+    <script src="/js/place.js"></script>
+    <script src="/js/state.js"></script>
     <script src="/js/ui.js"></script>
     <script src="/js/markers.js"></script>
     <script src="/js/duplicates.js"></script>
